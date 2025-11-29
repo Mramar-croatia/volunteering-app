@@ -22,10 +22,18 @@ app.use(express.json());
  * Credentials (email, private key) are taken from environment variables.
  */
 function getAuth() {
+  if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+    console.error('❌ Missing GOOGLE_CLIENT_EMAIL or GOOGLE_PRIVATE_KEY env vars');
+    throw new Error('Missing Google service account credentials');
+  }
+
+  console.log('✅ GOOGLE_CLIENT_EMAIL present:', !!process.env.GOOGLE_CLIENT_EMAIL);
+  console.log('✅ GOOGLE_PRIVATE_KEY present:', !!process.env.GOOGLE_PRIVATE_KEY);
+  console.log('✅ SPREADSHEET_ID present:', !!SPREADSHEET_ID);
+
   return new google.auth.JWT(
     process.env.GOOGLE_CLIENT_EMAIL,
     null,
-    // Replace literal "\n" in env var with real newlines
     process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
     ['https://www.googleapis.com/auth/spreadsheets']
   );
