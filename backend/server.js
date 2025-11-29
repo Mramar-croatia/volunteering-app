@@ -85,6 +85,10 @@ app.get('/api/names', async (req, res) => {
   }
 });
 
+app.get('/health', (req, res) => {
+  res.json({ status: "ok" });
+});
+
 /**
  * Helper: convert yyyy-mm-dd to dd/mm/yyyy
  */
