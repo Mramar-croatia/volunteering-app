@@ -41,6 +41,11 @@ function getAuth() {
 
 async function getSheetsClient() {
   const auth = getAuth();
+
+  // This forces the service account to obtain an access token now.
+  // If something is wrong with the credentials, this will throw a clearer error.
+  await auth.authorize();
+
   return google.sheets({ version: 'v4', auth });
 }
 
