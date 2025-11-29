@@ -428,6 +428,8 @@ function wireEvents() {
       refreshSortIndicators();
       applyFilters();
     });
+
+    renderVolunteers(filteredVolunteers);
   });
   refreshSortIndicators();
 
