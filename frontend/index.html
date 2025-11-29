@@ -67,13 +67,28 @@
       <!-- Right column: volunteers -->
       <section class="card">
         <div class="card-header-row">
-          <h2>Popis volontera</h2>
+          <div>
+            <h2>Popis volontera</h2>
+            <p class="hint">Označi sve volontere koji su bili prisutni na susretu.</p>
+          </div>
           <button type="button" id="select-all-btn" class="ghost-btn">
             Označi sve
           </button>
         </div>
-        <p class="hint">Označi sve volontere koji su bili prisutni na susretu.</p>
-        <div id="volunteer-list" class="volunteer-list">
+        <div class="volunteer-toolbar">
+          <div class="field search-field">
+            <label for="volunteer-filter">Pretraži volontere</label>
+            <input
+              type="search"
+              id="volunteer-filter"
+              name="volunteer-filter"
+              placeholder="Ime, škola ili kvart"
+              aria-label="Pretraži volontere"
+            />
+          </div>
+          <span id="volunteer-count" class="count-pill">0 volontera</span>
+        </div>
+        <div id="volunteer-list" class="volunteer-list" aria-live="polite">
           <!-- Filled by app.js -->
         </div>
       </section>
