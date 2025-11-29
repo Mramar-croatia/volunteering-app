@@ -3,89 +3,143 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Zlatni zmaj evidencija</title>
+  <title>Zlatni zmaj - Evidencija</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <span class="logo-circle">Z</span>
-      <div>
-        <h1>Zlatni zmaj</h1>
-        <p class="subtitle">Evidencija dolazaka volontera</p>
+  <header class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-inner">
+      <div class="brand">
+        <div>
+          <p class="eyebrow">Evidencija volontera</p>
+          <h1>ZLATNI ZMAJ</h1>
+          <p class="lede">Planiraj susret, oznaci prisutne i posalji zapis u par klikova.</p>
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-label">Na listi</span>
+          <strong id="stat-total">-</strong>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Oznaceno</span>
+          <strong id="stat-selected">0</strong>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Sortiranje</span>
+          <strong id="stat-sort">A-Z</strong>
+        </div>
       </div>
     </div>
   </header>
 
-  <main class="container">
-    <form id="attendance-form" class="grid-layout">
-      <!-- Left column: event details -->
-      <section class="card">
-        <h2>Detalji susreta</h2>
-
-        <div class="field">
-          <label for="date">Datum</label>
-          <input type="date" id="date" name="date" required />
+  <main class="page">
+    <form id="attendance-form" class="layout">
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Termin</p>
+            <h2>Detalji susreta</h2>
+          </div>
+          <div class="panel-chips">
+            <span class="pill pill-info" id="status-chip">Spremno</span>
+            <span class="pill pill-muted" id="existing-indicator">Provjera...</span>
+          </div>
         </div>
-
-        <div class="field">
-          <label for="location">Lokacija</label>
-          <input
-            type="text"
-            id="location"
-            name="location"
-            placeholder="npr. Dubrava, Dugave..."
-            required
-          />
-        </div>
-
-        <div class="field-inline">
+        <div class="panel-body">
           <div class="field">
-            <label for="childrenCount">Broj djece</label>
-            <input
-              type="number"
-              id="childrenCount"
-              name="childrenCount"
-              min="0"
-              required
-            />
+            <label for="date">Datum</label>
+            <input type="date" id="date" name="date" required />
           </div>
 
           <div class="field">
-            <label for="volunteerCount">Broj volontera</label>
-            <input
-              type="number"
-              id="volunteerCount"
-              name="volunteerCount"
-              min="0"
-              required
-            />
+            <label for="location">Lokacija</label>
+            <select id="location" name="location" required>
+              <option value="" disabled selected>Odaberi lokaciju</option>
+            </select>
+          </div>
+
+          <div class="field-inline">
+            <div class="field">
+              <label for="childrenCount">Broj djece</label>
+              <input
+                type="number"
+                id="childrenCount"
+                name="childrenCount"
+                min="0"
+                required
+              />
+            </div>
+
+            <div class="field">
+              <label for="volunteerCount">Broj volontera</label>
+              <input
+                type="number"
+                id="volunteerCount"
+                name="volunteerCount"
+                min="0"
+                required
+              />
+            </div>
           </div>
         </div>
-      </section>
-
-      <!-- Right column: volunteers -->
-      <section class="card">
-        <div class="card-header-row">
-          <h2>Popis volontera</h2>
-          <button type="button" id="select-all-btn" class="ghost-btn">
-            Označi sve
-          </button>
-        </div>
-        <p class="hint">Označi sve volontere koji su bili prisutni na susretu.</p>
-        <div id="volunteer-list" class="volunteer-list">
-          <!-- Filled by app.js -->
+        <div class="panel-footer">
+          <p class="hint">Najprije upisi osnovne podatke, zatim oznaci prisutne.</p>
         </div>
       </section>
 
-      <!-- Full width: actions + status -->
-      <section class="card card-full">
-        <div class="actions-row">
+      <section class="panel panel-wide">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Roster</p>
+            <h2>Popis volontera</h2>
+            <p class="muted">Pretrazi, sortiraj i oznaci tko je bio na susretu.</p>
+          </div>
+          <div class="actions aligned-actions">
+            <button type="button" id="sort-toggle" class="ghost-btn">A-Z</button>
+            <button type="button" id="select-all-btn" class="ghost-btn">Oznaci sve vidljive</button>
+          </div>
+        </div>
+
+        <div class="filters">
+          <div class="search-group">
+            <input type="search" id="search-input" placeholder="Trazi volontera..." />
+            <button type="button" id="clear-search" class="ghost-btn ghost-btn-small">Ocisti</button>
+          </div>
+          <div class="legend">
+            <span class="pill pill-muted">Klik na red oznacava prisutnost</span>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="roster-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort-key="name">IME I PREZIME</th>
+                <th class="sortable" data-sort-key="school">SKOLA</th>
+                <th class="sortable center" data-sort-key="grade">RAZRED</th>
+                <th class="sortable" data-sort-key="locations">LOKACIJE</th>
+                <th class="sortable center" data-sort-key="hours">SATI</th>
+                <th class="center">PRISUTAN</th>
+              </tr>
+            </thead>
+            <tbody id="volunteer-table-body">
+              <tr class="empty-row">
+                <td colspan="6">Lista se ucitava...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel panel-actions">
+        <div class="actions">
           <button type="submit" class="primary-btn">
             Spremi evidenciju
           </button>
-          <button type="reset" class="ghost-btn">
-            Očisti formu
+          <button type="reset" class="ghost-btn" id="reset-btn">
+            Ocisti formu
           </button>
         </div>
         <p id="status" class="status"></p>
@@ -94,7 +148,7 @@
   </main>
 
   <footer class="footer">
-    <small>© Zlatni zmaj · Evidencija volontera</small>
+    <small>AC Zlatni zmaj - Evidencija volontera</small>
   </footer>
 
   <script src="app.js"></script>

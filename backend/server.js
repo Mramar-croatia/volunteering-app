@@ -56,8 +56,8 @@ async function getSheetsClient() {
 
 /**
  * GET /api/names
- * Reads volunteers from BAZA!A2:E and returns an array of objects:
- * [{ name, school, grade, location, phone }, ...]
+ * Reads volunteers from BAZA!A2:I and returns an array of objects:
+ * [{ name, school, grade, location, phone, hours }, ...]
  */
 app.get('/api/names', async (req, res) => {
   try {
@@ -65,7 +65,7 @@ app.get('/api/names', async (req, res) => {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'BAZA!A2:E' // Name, School, Grade, Location, Phone
+      range: 'BAZA!A2:I' // Name, School, Grade, Location, Phone, Hours (col I)
     });
 
     const rows = response.data.values || [];
@@ -77,7 +77,8 @@ app.get('/api/names', async (req, res) => {
         school: row[1] || '',
         grade: row[2] || '',
         location: row[3] || '',
-        phone: row[4] || ''
+        phone: row[4] || '',
+        hours: row[8] || ''
       }));
 
     res.json(result);
@@ -168,6 +169,7 @@ app.post('/api/attendance', async (req, res) => {
       spreadsheetId: SPREADSHEET_ID,
       range: 'Evidencija!A:E',
       valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
       requestBody: {
         values: [[date, location, childrenCount, volunteerCount, selectedNames]]
       }
@@ -177,6 +179,37 @@ app.post('/api/attendance', async (req, res) => {
   } catch (err) {
     console.error('Error in /api/attendance:', err);
     res.status(500).json({ error: 'Failed to save attendance' });
+  }
+});
+
+/**
+ * GET /api/evidencija
+ * Returns existing attendance rows from Evidencija!A2:E
+ */
+app.get('/api/evidencija', async (req, res) => {
+  try {
+    const sheets = await getSheetsClient();
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Evidencija!A2:E'
+    });
+
+    const rows = response.data.values || [];
+    const result = rows
+      .filter(row => row.length)
+      .map(row => ({
+        date: row[0] || '',
+        location: row[1] || '',
+        childrenCount: row[2] || '',
+        volunteerCount: row[3] || '',
+        volunteers: row[4] || ''
+      }));
+
+    res.json(result);
+  } catch (err) {
+    console.error('Error in /api/evidencija:', err);
+    res.status(500).json({ error: 'Failed to fetch evidencija' });
   }
 });
 
