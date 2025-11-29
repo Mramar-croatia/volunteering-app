@@ -17,37 +17,40 @@ app.use(cors());
 // Parse JSON request bodies
 app.use(express.json());
 
-/**
- * Create an authenticated Google Sheets client using a service account.
- * Credentials (email, private key) are taken from environment variables.
- */
 function getAuth() {
-  if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+  const rawKey = process.env.GOOGLE_PRIVATE_KEY;
+
+  if (!clientEmail || !rawKey) {
     console.error('❌ Missing GOOGLE_CLIENT_EMAIL or GOOGLE_PRIVATE_KEY env vars');
     throw new Error('Missing Google service account credentials');
   }
 
-  console.log('✅ GOOGLE_CLIENT_EMAIL present:', !!process.env.GOOGLE_CLIENT_EMAIL);
-  console.log('✅ GOOGLE_PRIVATE_KEY present:', !!process.env.GOOGLE_PRIVATE_KEY);
+  // Handle both cases:
+  // - key stored with real newlines
+  // - key stored as a single line with "\n"
+  const privateKey = rawKey.replace(/\\n/g, '\n');
+
+  console.log('✅ GOOGLE_CLIENT_EMAIL present:', !!clientEmail);
+  console.log('✅ GOOGLE_PRIVATE_KEY length:', privateKey.length);
   console.log('✅ SPREADSHEET_ID present:', !!SPREADSHEET_ID);
 
-  return new google.auth.JWT(
-    process.env.GOOGLE_CLIENT_EMAIL,
-    null,
-    process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    ['https://www.googleapis.com/auth/spreadsheets']
-  );
+  // Extra sanity check – should print: "-----BEGIN PRIVATE KEY-----"
+  console.log('✅ GOOGLE_PRIVATE_KEY starts with:', privateKey.split('\n')[0]);
+
+  return new google.auth.JWT({
+    email: clientEmail,
+    key: privateKey,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets']
+  });
 }
 
 async function getSheetsClient() {
   const auth = getAuth();
-
-  // This forces the service account to obtain an access token now.
-  // If something is wrong with the credentials, this will throw a clearer error.
-  await auth.authorize();
-
+  await auth.authorize(); // forces it to actually use the key
   return google.sheets({ version: 'v4', auth });
 }
+
 
 /**
  * GET /api/names
