@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="hr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zlatni zmaj evidencija</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="logo-circle">Z</span>
+      <div>
+        <h1>Zlatni zmaj</h1>
+        <p class="subtitle">Evidencija dolazaka volontera</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <form id="attendance-form" class="grid-layout">
+      <!-- Left column: event details -->
+      <section class="card">
+        <h2>Detalji susreta</h2>
+
+        <div class="field">
+          <label for="date">Datum</label>
+          <input type="date" id="date" name="date" required />
+        </div>
+
+        <div class="field">
+          <label for="location">Lokacija</label>
+          <input
+            type="text"
+            id="location"
+            name="location"
+            placeholder="npr. Dubrava, Dugave..."
+            required
+          />
+        </div>
+
+        <div class="field-inline">
+          <div class="field">
+            <label for="childrenCount">Broj djece</label>
+            <input
+              type="number"
+              id="childrenCount"
+              name="childrenCount"
+              min="0"
+              required
+            />
+          </div>
+
+          <div class="field">
+            <label for="volunteerCount">Broj volontera</label>
+            <input
+              type="number"
+              id="volunteerCount"
+              name="volunteerCount"
+              min="0"
+              required
+            />
+          </div>
+        </div>
+      </section>
+
+      <!-- Right column: volunteers -->
+      <section class="card">
+        <div class="card-header-row">
+          <h2>Popis volontera</h2>
+          <button type="button" id="select-all-btn" class="ghost-btn">
+            Označi sve
+          </button>
+        </div>
+        <p class="hint">Označi sve volontere koji su bili prisutni na susretu.</p>
+        <div id="volunteer-list" class="volunteer-list">
+          <!-- Filled by app.js -->
+        </div>
+      </section>
+
+      <!-- Full width: actions + status -->
+      <section class="card card-full">
+        <div class="actions-row">
+          <button type="submit" class="primary-btn">
+            Spremi evidenciju
+          </button>
+          <button type="reset" class="ghost-btn">
+            Očisti formu
+          </button>
+        </div>
+        <p id="status" class="status"></p>
+      </section>
+    </form>
+  </main>
+
+  <footer class="footer">
+    <small>© Zlatni zmaj · Evidencija volontera</small>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

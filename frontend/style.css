@@ -1,0 +1,231 @@
+/* frontend/style.css */
+
+/* Overall page styling */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(circle at top, #e0f2fe 0, #f5f5f7 45%, #f5f5f7 100%);
+  color: #0f172a;
+}
+
+/* Top bar / header */
+.topbar {
+  background: rgba(15, 23, 42, 0.95);
+  color: #e5e7eb;
+  padding: 0.6rem 1rem;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+}
+
+.topbar-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #38bdf8;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.topbar h1 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+/* Main container */
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+/* Layout: two columns on larger screens */
+.grid-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+  gap: 1rem;
+}
+
+.card-full {
+  grid-column: 1 / -1; /* span both columns */
+}
+
+@media (max-width: 768px) {
+  .grid-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card styling */
+.card {
+  background: #ffffff;
+  border-radius: 0.9rem;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.09);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 1.05rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Form fields */
+.field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.75rem;
+}
+
+.field label {
+  font-size: 0.85rem;
+  margin-bottom: 0.2rem;
+  color: #4b5563;
+}
+
+.field input {
+  padding: 0.55rem 0.6rem;
+  border-radius: 0.45rem;
+  border: 1px solid #d4d4d8;
+  font-size: 0.95rem;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.field-inline {
+  display: flex;
+  gap: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .field-inline {
+    flex-direction: column;
+  }
+}
+
+/* Volunteers list */
+.hint {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: 0;
+}
+
+.volunteer-list {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.35rem;
+  max-height: 320px;
+  padding-right: 0.25rem;
+  overflow-y: auto;
+}
+
+.volunteer-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  padding: 0.15rem 0.3rem;
+  border-radius: 999px;
+  background: #f3f4f6;
+}
+
+.volunteer-item input[type="checkbox"] {
+  accent-color: #2563eb; /* modern browsers */
+}
+
+/* Buttons */
+.primary-btn {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1.4rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+}
+
+.primary-btn:hover {
+  background: #1d4ed8;
+}
+
+.primary-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.4);
+}
+
+.ghost-btn {
+  background: transparent;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.ghost-btn:hover {
+  background: #e5e7eb;
+}
+
+/* Card header row with title + small button */
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Actions row */
+.actions-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Status message */
+.status {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+/* Footer */
+.footer {
+  padding: 0.5rem 1rem 1rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
