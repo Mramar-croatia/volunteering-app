@@ -7,7 +7,7 @@
 // After deployment, change this to your Render URL, e.g.
 //   const API_BASE_URL = "https://your-backend.onrender.com";
 
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL = "https://volunteering-app-fc5r.onrender.com";
 
 // Get DOM elements
 const volunteerListEl = document.getElementById('volunteer-list');
