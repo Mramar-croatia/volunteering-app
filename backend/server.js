@@ -26,10 +26,10 @@ function getAuth() {
     throw new Error('Missing Google service account credentials');
   }
 
-  // Handle both cases:
-  // - key stored with real newlines
-  // - key stored as a single line with "\n"
   const privateKey = rawKey.replace(/\\n/g, '\n');
+
+  /** 
+   * Korsititi u slučaju da je potrebno
 
   console.log('✅ GOOGLE_CLIENT_EMAIL present:', !!clientEmail);
   console.log('✅ GOOGLE_PRIVATE_KEY length:', privateKey.length);
@@ -37,6 +37,8 @@ function getAuth() {
 
   // Extra sanity check – should print: "-----BEGIN PRIVATE KEY-----"
   console.log('✅ GOOGLE_PRIVATE_KEY starts with:', privateKey.split('\n')[0]);
+
+  */
 
   return new google.auth.JWT({
     email: clientEmail,

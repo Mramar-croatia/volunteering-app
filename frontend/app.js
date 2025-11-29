@@ -1,17 +1,13 @@
 // frontend/app.js
 
-// During local development, if backend runs on localhost:3000:
-//
-//   const API_BASE_URL = "http://localhost:3000";
-//
-// After deployment, change this to your Render URL, e.g.
-//   const API_BASE_URL = "https://your-backend.onrender.com";
-
-const fake_API_BASE_URL = "https://volunteering-app-fc5r.onrender.com";
+/**
+ * To only be used if you want Render hosted backend.
+const API_BASE_URL = "https://volunteering-app-fc5r.onrender.com";
+ */
 
 const API_BASE_URL = "https://volunteering-app-109370863016.europe-west1.run.app";
 
-// Get DOM elements
+// Get JSON file elements for the app
 const volunteerListEl = document.getElementById('volunteer-list');
 const formEl = document.getElementById('attendance-form');
 const statusEl = document.getElementById('status');
@@ -20,7 +16,7 @@ const statusEl = document.getElementById('status');
  * Fetch volunteer names from the backend and render them as checkboxes.
  */
 async function loadVolunteers() {
-  statusEl.textContent = "Učitavanje volontera...";
+  statusEl.textContent = "Učitavanje popisa volontera...";
   try {
     const res = await fetch(`${API_BASE_URL}/api/names`);
     if (!res.ok) {
@@ -51,7 +47,7 @@ async function loadVolunteers() {
     statusEl.textContent = "";
   } catch (err) {
     console.error(err);
-    statusEl.textContent = "Greška pri učitavanju volontera.";
+    statusEl.textContent = "Pogreška pri učitavanju liste volontera.";
     statusEl.style.color = "red";
   }
 }
@@ -63,7 +59,7 @@ async function handleSubmit(event) {
   event.preventDefault(); // prevent page reload
 
   statusEl.style.color = "";
-  statusEl.textContent = "Spremam evidenciju...";
+  statusEl.textContent = "Spremanje termina u evidenciju...";
 
   const dateValue = document.getElementById('date').value;
   const locationValue = document.getElementById('location').value;
@@ -102,7 +98,7 @@ async function handleSubmit(event) {
     const data = await res.json();
     if (data.ok) {
       statusEl.style.color = "green";
-      statusEl.textContent = "Evidencija je uspješno spremljena!";
+      statusEl.textContent = "Termin uspješno upisan u evidenciju!";
 
       // Optionally reset form and uncheck volunteers
       formEl.reset();
@@ -115,7 +111,7 @@ async function handleSubmit(event) {
   } catch (err) {
     console.error(err);
     statusEl.style.color = "red";
-    statusEl.textContent = "Došlo je do greške pri spremanju.";
+    statusEl.textContent = "Došlo je do pogreške pri spremanju.";
   }
 }
 
