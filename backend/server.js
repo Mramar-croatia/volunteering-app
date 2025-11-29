@@ -1,5 +1,6 @@
 // backend/server.js
 
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { google } = require('googleapis');
@@ -10,6 +11,10 @@ const PORT = process.env.PORT || 3000;
 // We'll set this in environment variables later (Render)
 // For local testing you can temporarily hard-code your ID here.
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+
+if (!SPREADSHEET_ID) {
+  console.warn('Warning: SPREADSHEET_ID is not set. API calls will fail until it is provided.');
+}
 
 // Allow frontend from another domain (Netlify) to call this API
 app.use(cors());
@@ -22,7 +27,7 @@ function getAuth() {
   const rawKey = process.env.GOOGLE_PRIVATE_KEY;
 
   if (!clientEmail || !rawKey) {
-    console.error('❌ Missing GOOGLE_CLIENT_EMAIL or GOOGLE_PRIVATE_KEY env vars');
+    console.error('Missing GOOGLE_CLIENT_EMAIL or GOOGLE_PRIVATE_KEY env vars');
     throw new Error('Missing Google service account credentials');
   }
 
@@ -53,6 +58,14 @@ async function getSheetsClient() {
   return google.sheets({ version: 'v4', auth });
 }
 
+function assertSpreadsheetId(res) {
+  if (!SPREADSHEET_ID) {
+    res.status(500).json({ error: 'Missing SPREADSHEET_ID env var' });
+    return false;
+  }
+  return true;
+}
+
 
 /**
  * GET /api/names
@@ -60,6 +73,7 @@ async function getSheetsClient() {
  * [{ name, school, grade, location, phone, hours }, ...]
  */
 app.get('/api/names', async (req, res) => {
+  if (!assertSpreadsheetId(res)) return;
   try {
     const sheets = await getSheetsClient();
 
@@ -113,6 +127,7 @@ function formatDateToDDMMYYYY(isoDate) {
  * }
  */
 app.post('/api/attendance', async (req, res) => {
+  if (!assertSpreadsheetId(res)) return;
   try {
     const data = req.body;
     const sheets = await getSheetsClient();
@@ -187,6 +202,7 @@ app.post('/api/attendance', async (req, res) => {
  * Returns existing attendance rows from Evidencija!A2:E
  */
 app.get('/api/evidencija', async (req, res) => {
+  if (!assertSpreadsheetId(res)) return;
   try {
     const sheets = await getSheetsClient();
 

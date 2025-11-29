@@ -89,17 +89,47 @@
         </div>
       </section>
 
-      <!-- Right column: volunteers -->
-      <section class="card">
-        <div class="card-header-row">
-          <h2>Popis volontera</h2>
-          <button type="button" id="select-all-btn" class="ghost-btn">
-            Označi sve
-          </button>
+      <section class="panel panel-wide">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Roster</p>
+            <h2>Popis volontera</h2>
+            <p class="muted">Pretrazi, sortiraj i oznaci tko je bio na susretu.</p>
+          </div>
+          <div class="actions aligned-actions">
+            <button type="button" id="sort-toggle" class="ghost-btn">A-Z</button>
+            <button type="button" id="select-all-btn" class="ghost-btn">Oznaci sve vidljive</button>
+          </div>
         </div>
-        <p class="hint">Označi sve volontere koji su bili prisutni na susretu.</p>
-        <div id="volunteer-list" class="volunteer-list">
-          <!-- Filled by app.js -->
+
+        <div class="filters">
+          <div class="search-group">
+            <input type="search" id="search-input" placeholder="Trazi volontera..." />
+            <button type="button" id="clear-search" class="ghost-btn ghost-btn-small">Ocisti</button>
+          </div>
+          <div class="legend">
+            <span class="pill pill-muted">Klik na red oznacava prisutnost</span>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="roster-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort-key="name">IME I PREZIME</th>
+                <th class="sortable" data-sort-key="school">SKOLA</th>
+                <th class="sortable center" data-sort-key="grade">RAZRED</th>
+                <th class="sortable" data-sort-key="locations">LOKACIJE</th>
+                <th class="sortable center" data-sort-key="hours">SATI</th>
+                <th class="center">PRISUTAN</th>
+              </tr>
+            </thead>
+            <tbody id="volunteer-table-body">
+              <tr class="empty-row">
+                <td colspan="6">Lista se ucitava...</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

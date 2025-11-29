@@ -1,10 +1,22 @@
 // frontend/app.js
 
-/**
- * To only be used if you want Render hosted backend.
- * const API_BASE_URL = "https://volunteering-app-fc5r.onrender.com";
- */
-const API_BASE_URL = "https://volunteering-app-109370863016.europe-west1.run.app";
+// Ordered by priority; app will try each until one works.
+const API_BASE_URLS = [
+  '', // same-origin (works with local proxy/dev server)
+  'http://localhost:3000', // local backend
+  'https://volunteering-app-109370863016.europe-west1.run.app',
+  'https://volunteering-app-fc5r.onrender.com'
+];
+let activeApiBase = API_BASE_URLS[0];
+
+function getCandidateBases() {
+  const isFile = typeof window !== 'undefined' && window.location.protocol === 'file:';
+  // If opened as file://, skip relative/localhost options that will fail.
+  if (isFile) {
+    return API_BASE_URLS.filter(base => base.startsWith('https://'));
+  }
+  return API_BASE_URLS;
+}
 
 const volunteerTableBody = document.getElementById('volunteer-table-body');
 const formEl = document.getElementById('attendance-form');
@@ -297,17 +309,37 @@ function hydrateLocationSelect() {
   }
 }
 
+async function tryFetchJSON(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  return res.json();
+}
+
 async function loadVolunteers() {
   statusEl.style.color = '';
   statusEl.textContent = 'Ucitavanje popisa volontera...';
   setStatusChip('Ucitavanje', 'info');
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/names`);
-    if (!res.ok) {
-      throw new Error('Network response was not ok');
+    let volunteers = [];
+    let lastError = null;
+    let success = false;
+    for (const base of getCandidateBases()) {
+      try {
+        const data = await tryFetchJSON(`${base}/api/names`);
+        activeApiBase = base;
+        volunteers = data;
+        success = true;
+        break;
+      } catch (err) {
+        lastError = err;
+      }
     }
-    allVolunteers = await res.json();
+    if (!success) {
+      throw lastError || new Error('Nije pronađen dostupni backend');
+    }
+
+    allVolunteers = volunteers;
     filteredVolunteers = [...allVolunteers];
     renderVolunteers();
     refreshSortIndicators();
@@ -319,7 +351,7 @@ async function loadVolunteers() {
   } catch (err) {
     console.error(err);
     statusEl.style.color = 'red';
-    statusEl.textContent = 'Pogreska pri ucitavanju liste volontera.';
+    statusEl.textContent = 'Pogreska pri ucitavanju liste volontera. Provjeri backend ili kredencijale.';
     volunteerTableBody.innerHTML = `
       <tr class="empty-row">
         <td colspan="6">Ne mogu ucitati listu volontera.</td>
@@ -351,7 +383,7 @@ async function handleSubmit(event) {
   };
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/attendance`, {
+    const res = await fetch(`${activeApiBase}/api/attendance`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -470,9 +502,23 @@ function refreshSortIndicators() {
 
 async function loadExistingAttendance() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/evidencija`);
-    if (!res.ok) throw new Error('Network response was not ok');
-    existingAttendance = await res.json();
+    let data = [];
+    let lastError = null;
+    let success = false;
+    for (const base of getCandidateBases()) {
+      try {
+        const res = await fetch(`${base}/api/evidencija`);
+        if (!res.ok) throw new Error('Network response was not ok');
+        data = await res.json();
+        activeApiBase = base;
+        success = true;
+        break;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    if (!success) throw lastError || new Error('Nije pronađen dostupni backend');
+    existingAttendance = data;
   } catch (err) {
     console.error('Failed to load evidencija', err);
     existingAttendance = [];

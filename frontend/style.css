@@ -63,7 +63,7 @@ p {
   position: relative;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 14px 20px 18px;
+  padding: 10px 20px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -120,7 +120,7 @@ p {
 .page {
   max-width: 1200px;
   margin: 0 auto 32px;
-  padding: 12px 20px 20px;
+  padding: 8px 20px 16px;
 }
 
 .layout {
@@ -147,7 +147,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 12px 20px;
 }
 
 .panel-header {
@@ -155,7 +155,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 18px 20px 12px;
+  padding: 12px 20px 8px;
   border-bottom: 1px solid var(--line);
   box-shadow: inset 0 -2px 0 rgba(245, 196, 66, 0.35); /* subtle gold accent */
 }
@@ -171,7 +171,7 @@ p {
 }
 
 .panel-body {
-  padding: 16px 20px 6px;
+  padding: 12px 20px 6px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -368,7 +368,7 @@ p {
 .table-wrapper {
   padding: 8px 12px 20px;
   max-height: 420px;
-  min-height: 380px;
+  min-height: 420px;
   overflow: auto;
 }
 
@@ -405,6 +405,10 @@ p {
 .roster-table td.center,
 .roster-table th.center {
   text-align: center;
+}
+
+.roster-table th {
+  font-size: 16px;
 }
 
 .roster-table tr:last-child td {
