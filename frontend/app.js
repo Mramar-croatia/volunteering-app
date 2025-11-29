@@ -158,6 +158,11 @@ async function loadVolunteers() {
   }
 }
 
+function handleReset() {
+  selectedVolunteers.clear();
+  applyFilter();
+}
+
 /**
  * Collect form data and send it to the backend.
  */
@@ -215,6 +220,7 @@ async function handleSubmit(event) {
 document.addEventListener('DOMContentLoaded', () => {
   loadVolunteers();
   formEl.addEventListener('submit', handleSubmit);
+  formEl.addEventListener('reset', handleReset);
   if (volunteerFilterEl) {
     volunteerFilterEl.addEventListener('input', applyFilter);
   }
