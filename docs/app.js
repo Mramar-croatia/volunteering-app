@@ -33,6 +33,14 @@ const eventsClearSearchBtn = document.getElementById('events-clear-search');
 const eventsLocationFilter = document.getElementById('events-location-filter');
 const eventsYearFilter = document.getElementById('events-year-filter');
 const eventsTableBody = document.getElementById('events-table-body');
+const statsSummaryEl = document.getElementById('stats-summary');
+const statsUpdatedEl = document.getElementById('stats-updated');
+const statsChartsEl = document.getElementById('stats-charts');
+const statsTables = {
+  location: document.getElementById('stats-table-location'),
+  school: document.getElementById('stats-table-school'),
+  grade: document.getElementById('stats-table-grade')
+};
 const tabButtons = document.querySelectorAll('[data-tab-target]');
 const tabPanels = document.querySelectorAll('.tab-panel');
 const formEl = document.getElementById('attendance-form');
@@ -70,6 +78,8 @@ let bazaSortDirection = 'asc';
 let bazaSortableHeaders = [];
 let eventsFiltered = [];
 let activeTabId = 'tab-baza';
+let statisticsData = null;
+let statsChartInstances = [];
 
 function parseLocations(vol) {
   if (Array.isArray(vol.locations)) {
@@ -122,7 +132,8 @@ function refreshHeroStats() {
   const labels = {
     'tab-unos': { total: 'Na listi', secondary: 'Označeno' },
     'tab-baza': { total: 'Volontera', secondary: 'Sati' },
-    'tab-termini': { total: 'Broj termina', secondary: 'Lokacije' }
+    'tab-termini': { total: 'Broj termina', secondary: 'Broj djece' },
+    'tab-statistika': { total: 'Tablice', secondary: 'Grafovi' }
   };
 
   const activeLabels = labels[activeTabId] || labels['tab-unos'];
@@ -146,12 +157,23 @@ function refreshHeroStats() {
   } else if (activeTabId === 'tab-termini') {
     const totalEvents = existingAttendance.length;
     const filteredEvents = eventsFiltered.length || 0;
-    const totalLocations = new Set(existingAttendance.map(e => (e.location || '').trim().toLowerCase()).filter(Boolean));
-    const filteredLocations = new Set(eventsFiltered.map(e => (e.location || '').trim().toLowerCase()).filter(Boolean));
+    const totalChildren = existingAttendance.reduce(
+      (sum, entry) => sum + (Number.parseInt(entry.childrenCount, 10) || 0),
+      0
+    );
+    const filteredChildren = eventsFiltered.reduce(
+      (sum, entry) => sum + (Number.parseInt(entry.childrenCount, 10) || 0),
+      0
+    );
 
     totalValue = formatWithTotal(filteredEvents, totalEvents);
-    // For Lokacije, show only the filtered unique count (no total).
-    secondaryValue = filteredLocations.size || 0;
+    secondaryValue = formatWithTotal(filteredChildren, totalChildren);
+  } else if (activeTabId === 'tab-statistika') {
+    const tablesCount = (statisticsData && statisticsData.tables ? statisticsData.tables.length : 0) || 0;
+    const chartsCount = (statisticsData && statisticsData.charts ? statisticsData.charts.length : 0) || 0;
+
+    totalValue = tablesCount || '-';
+    secondaryValue = chartsCount || '-';
   }
 
   statTotalEl.textContent = totalValue;
@@ -183,6 +205,10 @@ function setActiveTab(targetId) {
     panel.classList.toggle('active', isActive);
     panel.hidden = !isActive;
   });
+
+  if (targetId === 'tab-statistika' && !statisticsData) {
+    loadStatistics();
+  }
 
   refreshHeroStats();
 }
@@ -1121,6 +1147,7 @@ function wireEvents() {
 document.addEventListener('DOMContentLoaded', () => {
   setupTabs();
   loadVolunteers();
+  loadStatistics();
   wireEvents();
   if (dateInput && dateInput.value) {
     setDateInputDisplay(toIsoDate(dateInput.value));
@@ -1398,6 +1425,237 @@ async function loadExistingAttendance() {
     applyEventsFilters();
     refreshHeroStats();
   }
+}
+
+function renderStatsSummary(cards = []) {
+  if (!statsSummaryEl) return;
+  statsSummaryEl.innerHTML = '';
+  if (!cards.length) {
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.textContent = 'Nema sažetaka za prikaz.';
+    statsSummaryEl.appendChild(empty);
+    return;
+  }
+
+  cards.forEach(card => {
+    const wrap = document.createElement('div');
+    wrap.className = 'stats-card';
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = card.label || '-';
+    const value = document.createElement('div');
+    value.className = 'value';
+    value.textContent = card.value || '-';
+    wrap.appendChild(label);
+    wrap.appendChild(value);
+    if (card.delta) {
+      const delta = document.createElement('div');
+      delta.className = 'delta';
+      delta.textContent = card.delta;
+      wrap.appendChild(delta);
+    }
+    statsSummaryEl.appendChild(wrap);
+  });
+}
+
+function buildStatsTable(columns = [], rows = []) {
+  const table = document.createElement('table');
+  table.className = 'roster-table compact';
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  columns.forEach(col => {
+    const th = document.createElement('th');
+    th.textContent = col;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  if (!rows.length) {
+    const tr = document.createElement('tr');
+    tr.className = 'empty-row';
+    const td = document.createElement('td');
+    td.colSpan = columns.length || 1;
+    td.textContent = 'Nema podataka.';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  } else {
+    rows.forEach(row => {
+      const tr = document.createElement('tr');
+      row.forEach(cell => {
+        const td = document.createElement('td');
+        td.textContent = cell || '-';
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  table.appendChild(tbody);
+  return table;
+}
+
+function renderStatsTables(tables = []) {
+  const hostMap = {
+    'by-location': statsTables.location,
+    'by-school': statsTables.school,
+    'by-grade': statsTables.grade
+  };
+
+  Object.values(hostMap).forEach(host => {
+    if (host) host.innerHTML = '';
+  });
+
+  tables.forEach(table => {
+    const host = hostMap[table.id];
+    if (!host) return;
+    host.innerHTML = '';
+    const title = document.createElement('div');
+    title.className = 'muted';
+    title.textContent = table.title || '';
+    const tableEl = buildStatsTable(table.columns, table.rows);
+    host.appendChild(title);
+    host.appendChild(tableEl);
+  });
+}
+
+function destroyStatsCharts() {
+  statsChartInstances.forEach(instance => {
+    if (instance && typeof instance.destroy === 'function') {
+      instance.destroy();
+    }
+  });
+  statsChartInstances = [];
+}
+
+function renderStatsCharts(charts = []) {
+  if (!statsChartsEl) return;
+  destroyStatsCharts();
+  statsChartsEl.innerHTML = '';
+
+  if (!charts.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-row';
+    empty.textContent = 'Nema grafova za prikaz.';
+    statsChartsEl.appendChild(empty);
+    return;
+  }
+
+  const palette = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#0ea5e9', '#8b5cf6'];
+
+  charts.forEach((chart, chartIndex) => {
+    const card = document.createElement('div');
+    card.className = 'chart-card';
+    const title = document.createElement('h4');
+    title.textContent = chart.title || 'Graf';
+    const canvasWrap = document.createElement('div');
+    canvasWrap.className = 'chart-canvas';
+    const canvas = document.createElement('canvas');
+    canvas.id = `chart-${chart.id || chartIndex}`;
+    canvasWrap.appendChild(canvas);
+    card.appendChild(title);
+    card.appendChild(canvasWrap);
+    statsChartsEl.appendChild(card);
+
+    if (typeof Chart !== 'undefined') {
+      const datasets = (chart.datasets || []).map((ds, idx) => {
+        const color = palette[idx % palette.length];
+        const isLine = ds.type === 'line' || chart.type === 'line';
+        return {
+          label: ds.label || `Serija ${idx + 1}`,
+          data: ds.data || [],
+          type: ds.type || chart.type || 'bar',
+          backgroundColor: isLine ? color : `${color}33`,
+          borderColor: color,
+          borderWidth: 2,
+          tension: 0.25,
+          fill: !isLine
+        };
+      });
+
+      const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: datasets.length > 1 }
+        },
+        ...chart.options
+      };
+
+      const instance = new Chart(canvas.getContext('2d'), {
+        type: chart.type || 'bar',
+        data: {
+          labels: chart.labels || [],
+          datasets
+        },
+        options
+      });
+      statsChartInstances.push(instance);
+    } else {
+      const fallback = document.createElement('div');
+      fallback.className = 'muted';
+      fallback.textContent = 'Chart.js nije dostupan.';
+      card.appendChild(fallback);
+    }
+  });
+}
+
+function renderStats(payload) {
+  if (!payload) return;
+  renderStatsSummary(payload.summaryCards || []);
+  renderStatsTables(payload.tables || []);
+  renderStatsCharts(payload.charts || []);
+
+  if (statsUpdatedEl) {
+    const updated = payload.lastUpdated ? new Date(payload.lastUpdated) : null;
+    if (updated && !Number.isNaN(updated.getTime())) {
+      statsUpdatedEl.textContent = `Ažurirano: ${updated.toLocaleString('hr-HR')}`;
+    } else {
+      statsUpdatedEl.textContent = 'Ažurirano: -';
+    }
+  }
+  refreshHeroStats();
+}
+
+function renderStatsLoading() {
+  if (statsSummaryEl) {
+    statsSummaryEl.innerHTML = '<p class=\"muted\">Učitavanje statistike...</p>';
+  }
+  if (statsChartsEl) {
+    statsChartsEl.innerHTML = '<div class=\"empty-row\">Grafovi se učitavaju...</div>';
+  }
+}
+
+function renderStatsError(message) {
+  if (statsSummaryEl) {
+    statsSummaryEl.innerHTML = `<p class=\"status error\">${message || 'Neuspjelo učitavanje statistike.'}</p>`;
+  }
+  if (statsChartsEl) {
+    statsChartsEl.innerHTML = '<div class=\"empty-row\">Nije moguće prikazati grafove.</div>';
+  }
+}
+
+async function loadStatistics() {
+  if (!statsSummaryEl && !statsChartsEl) return;
+  renderStatsLoading();
+  let lastError = null;
+  for (const base of getCandidateBases()) {
+    try {
+      const res = await fetch(`${base}/api/statistika`);
+      if (!res.ok) throw new Error('Network response was not ok');
+      const data = await res.json();
+      activeApiBase = base;
+      statisticsData = data;
+      renderStats(data);
+      return;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  console.error('Failed to load statistika', lastError);
+  renderStatsError('Nije moguće dohvatiti statistiku.');
 }
 
 function normalizeDate(dateStr) {

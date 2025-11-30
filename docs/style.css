@@ -1266,6 +1266,82 @@ p {
   border: 1px solid rgba(124, 58, 237, 0.3);
 }
 
+.stats-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.stats-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
+}
+
+.stats-card .label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.stats-card .value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.stats-card .delta {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.stats-table-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.stats-table-grid .roster-table {
+  display: table;
+}
+
+.mobile-active .stats-table-grid .roster-table {
+  display: table;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
+  min-height: 260px;
+}
+
+.chart-card h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.chart-card .chart-canvas {
+  flex: 1;
+  position: relative;
+}
+
 .mobile-active .table-wrapper {
   max-height: none;
   min-height: 0;

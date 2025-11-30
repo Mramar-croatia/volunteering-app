@@ -58,6 +58,16 @@
         </button>
         <button
           class="tab-btn"
+          id="tab-statistika-btn"
+          data-tab-target="tab-statistika"
+          role="tab"
+          aria-controls="tab-statistika"
+          aria-selected="false"
+        >
+          STATISTIKA
+        </button>
+        <button
+          class="tab-btn"
           id="tab-unos-btn"
           data-tab-target="tab-unos"
           role="tab"
@@ -200,6 +210,60 @@
       </section>
 
       <section
+        id="tab-statistika"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-statistika-btn"
+      >
+        <div class="layout">
+          <section class="panel panel-wide stretch-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Statistika</h2>
+                <p class="muted">Sažeci i grafovi iz STATISTIKA sheeta.</p>
+              </div>
+              <div class="panel-chips">
+                <span class="pill pill-muted uppercase" id="stats-updated">Učitava se...</span>
+              </div>
+            </div>
+            <div id="stats-summary" class="stats-summary"></div>
+          </section>
+
+          <section class="panel panel-wide stretch-panel">
+            <div class="panel-header">
+              <div>
+                <h3>Tablice</h3>
+                <p class="muted">Pregled po lokaciji, školi i razredu.</p>
+              </div>
+            </div>
+            <div class="stats-table-grid">
+              <div class="table-wrapper" id="stats-table-location">
+                <div class="empty-row">Tablica se učitava...</div>
+              </div>
+              <div class="table-wrapper" id="stats-table-school">
+                <div class="empty-row">Tablica se učitava...</div>
+              </div>
+              <div class="table-wrapper" id="stats-table-grade">
+                <div class="empty-row">Tablica se učitava...</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel panel-wide stretch-panel">
+            <div class="panel-header">
+              <div>
+                <h3>Grafovi</h3>
+                <p class="muted">Vizualni pregled ključnih vrijednosti.</p>
+              </div>
+            </div>
+            <div class="chart-grid" id="stats-charts">
+              <div class="empty-row">Grafovi se pripremaju...</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section
         id="tab-unos"
         class="tab-panel"
         role="tabpanel"
@@ -332,6 +396,7 @@
     <small>AC Zlatni zmaj - Evidencija volontera</small>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
