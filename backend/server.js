@@ -4,28 +4,17 @@
 const express = require('express');
 const cors = require('cors');
 const { google } = require('googleapis');
-const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 // Environment-driven configuration
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID;
 const ROSTER_RANGE = 'BAZA!A2:I';
 const ATTENDANCE_SHEET = 'EVIDENCIJA';
-const ATTENDANCE_RANGE = `${ATTENDANCE_SHEET}!A:G`;
-const ATTENDANCE_HEADER_RANGE = `${ATTENDANCE_SHEET}!A1:G1`;
-const ATTENDANCE_HEADERS = [
-  'DATUM',
-  'LOKACIJA',
-  'BROJ DJECE',
-  'BROJ VOLONTERA',
-  'VOLONTERI',
-  'NAPOMENA',
-  'PRIJAVIO'
-];
-const oauthClient = GOOGLE_OAUTH_CLIENT_ID ? new OAuth2Client(GOOGLE_OAUTH_CLIENT_ID) : null;
+const ATTENDANCE_RANGE = `${ATTENDANCE_SHEET}!A:E`;
+const ATTENDANCE_HEADER_RANGE = `${ATTENDANCE_SHEET}!A1:E1`;
+const ATTENDANCE_HEADERS = ['DATUM', 'LOKACIJA', 'BROJ DJECE', 'BROJ VOLONTERA', 'VOLONTERI'];
 
 if (!SPREADSHEET_ID) {
   console.warn('Warning: SPREADSHEET_ID is not set. API calls will fail until it is provided.');
@@ -75,33 +64,21 @@ async function ensureAttendanceSheet(sheetsClient) {
     s => s.properties && s.properties.title === ATTENDANCE_SHEET
   );
 
-  if (!sheetExists) {
-    await sheetsClient.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
-      requestBody: {
-        requests: [{ addSheet: { properties: { title: ATTENDANCE_SHEET } } }]
-      }
-    });
-  }
+  if (sheetExists) return;
 
-  // Ensure header row matches expected columns (including PRIJAVIO in column G)
-  const headerRes = await sheetsClient.spreadsheets.values.get({
+  await sheetsClient.spreadsheets.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
-    range: ATTENDANCE_HEADER_RANGE
+    requestBody: {
+      requests: [{ addSheet: { properties: { title: ATTENDANCE_SHEET } } }]
+    }
   });
-  const headerRow = (headerRes.data.values && headerRes.data.values[0]) || [];
-  const needsUpdate =
-    headerRow.length < ATTENDANCE_HEADERS.length ||
-    ATTENDANCE_HEADERS.some((val, idx) => (headerRow[idx] || '') !== val);
 
-  if (needsUpdate) {
-    await sheetsClient.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range: ATTENDANCE_HEADER_RANGE,
-      valueInputOption: 'RAW',
-      requestBody: { values: [ATTENDANCE_HEADERS] }
-    });
-  }
+  await sheetsClient.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: ATTENDANCE_HEADER_RANGE,
+    valueInputOption: 'RAW',
+    requestBody: { values: [ATTENDANCE_HEADERS] }
+  });
 }
 
 function formatDateToISO(input) {
@@ -121,41 +98,6 @@ function formatDateToDDMMYYYY(isoDate) {
   if (!isoDate) return '';
   const [year, month, day] = isoDate.split('-');
   return `${day}/${month}/${year}`;
-}
-
-async function verifyGoogleIdToken(idToken) {
-  if (!oauthClient) {
-    throw new Error('GOOGLE_OAUTH_CLIENT_ID is not configured');
-  }
-  const ticket = await oauthClient.verifyIdToken({
-    idToken,
-    audience: GOOGLE_OAUTH_CLIENT_ID
-  });
-  const payload = ticket.getPayload();
-  return {
-    email: payload.email,
-    name: payload.name,
-    picture: payload.picture,
-    userId: payload.sub
-  };
-}
-
-async function requireGoogleAuth(req, res, next) {
-  if (!GOOGLE_OAUTH_CLIENT_ID) {
-    return res.status(500).json({ error: 'Missing GOOGLE_OAUTH_CLIENT_ID env var' });
-  }
-  const header = req.headers.authorization || '';
-  const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
-  if (!idToken) {
-    return res.status(401).json({ error: 'Google sign-in required' });
-  }
-  try {
-    req.googleUser = await verifyGoogleIdToken(idToken);
-    next();
-  } catch (err) {
-    console.error('Failed to verify Google ID token', err);
-    res.status(401).json({ error: 'Invalid Google sign-in' });
-  }
 }
 
 function validateAttendancePayload(data) {
@@ -229,7 +171,7 @@ app.get('/health', (req, res) => {
  *   "selected": ["Name1", "Name2"]
  * }
  */
-app.post('/api/attendance', requireGoogleAuth, async (req, res) => {
+app.post('/api/attendance', async (req, res) => {
   if (!assertSpreadsheetId(res)) return;
   try {
     const validation = validateAttendancePayload(req.body);
@@ -237,8 +179,6 @@ app.post('/api/attendance', requireGoogleAuth, async (req, res) => {
       return res.status(400).json({ error: validation.message });
     }
     const data = validation.payload;
-    const submittedBy =
-      (req.googleUser && (req.googleUser.email || req.googleUser.name || req.googleUser.userId)) || '';
     const sheets = await getSheetsClient();
 
     await ensureAttendanceSheet(sheets);
@@ -248,9 +188,7 @@ app.post('/api/attendance', requireGoogleAuth, async (req, res) => {
       range: ATTENDANCE_RANGE,
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
-      requestBody: {
-        values: [[data.date, data.location, data.childrenCount, data.volunteerCount, data.selectedNames, '', submittedBy]]
-      }
+      requestBody: { values: [[data.date, data.location, data.childrenCount, data.volunteerCount, data.selectedNames]] }
     });
 
     res.json({ ok: true });
@@ -271,7 +209,7 @@ app.get('/api/evidencija', async (req, res) => {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${ATTENDANCE_SHEET}!A2:G`
+      range: `${ATTENDANCE_SHEET}!A2:E`
     });
 
     const rows = response.data.values || [];
@@ -282,8 +220,7 @@ app.get('/api/evidencija', async (req, res) => {
         location: row[1] || '',
         childrenCount: row[2] || '',
         volunteerCount: row[3] || '',
-        volunteers: row[4] || '',
-        submittedBy: row[6] || ''
+        volunteers: row[4] || ''
       }));
 
     res.json(result);

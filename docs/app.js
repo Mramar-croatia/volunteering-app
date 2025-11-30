@@ -51,20 +51,6 @@ const statSelectedLabel = document.getElementById('stat-selected-label');
 const locationSelect = document.getElementById('location');
 const dateInput = document.getElementById('date'); // visible text input
 const datePicker = document.getElementById('date-picker'); // hidden native picker
-const authBadgeEl = document.getElementById('auth-badge');
-const authMessageEl = document.getElementById('auth-message');
-const authUserCard = document.getElementById('auth-user');
-const authUserNameEl = document.getElementById('auth-user-name');
-const authUserEmailEl = document.getElementById('auth-user-email');
-const authAvatarEl = document.getElementById('auth-avatar');
-const googleSignInBtn = document.getElementById('google-signin-btn');
-const googleSignOutBtn = document.getElementById('google-signout-btn');
-const manualLoginBtn = document.getElementById('manual-login-btn');
-const authWarningEl = document.getElementById('auth-warning');
-const authRequiredControls = document.querySelectorAll('[data-auth-required]');
-
-const GOOGLE_CLIENT_ID = window.GOOGLE_CLIENT_ID || '';
-const authState = { idToken: '', user: null, ready: false };
 
 let allVolunteers = [];
 let filteredVolunteers = [];
@@ -119,147 +105,6 @@ function setStatusChip(text, tone = 'info') {
   statusChip.style.background = toneColors.bg;
   statusChip.style.color = toneColors.color;
   statusChip.style.borderColor = toneColors.border;
-}
-
-function decodeJwtPayload(token) {
-  try {
-    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map(c => `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`)
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch (err) {
-    console.error('Failed to decode JWT payload', err);
-    return null;
-  }
-}
-
-function lockAuthControls(locked, message = '') {
-  if (authRequiredControls && authRequiredControls.length) {
-    authRequiredControls.forEach(el => {
-      el.disabled = locked;
-      el.classList.toggle('disabled-btn', locked);
-    });
-  }
-  if (authWarningEl) {
-    authWarningEl.textContent = locked
-      ? message || 'Prijava je obavezna prije spremanja evidencije.'
-      : 'Prijavljeni ste. Spremni za unos.';
-  }
-}
-
-function updateAuthUI(message = '') {
-  const signedIn = Boolean(authState.idToken);
-
-  if (authBadgeEl) {
-    authBadgeEl.classList.remove('pill-success', 'pill-alert');
-    authBadgeEl.textContent = signedIn ? 'PRIJAVLJEN' : 'PRIJAVA POTREBNA';
-    authBadgeEl.classList.add(signedIn ? 'pill-success' : 'pill-alert');
-  }
-  if (authMessageEl) {
-    authMessageEl.textContent =
-      message ||
-      (signedIn
-        ? 'Spremno za unos evidencije.'
-        : 'Prijavi se Google računom kako bi otključao unos.');
-  }
-  if (authUserCard) {
-    authUserCard.hidden = !signedIn;
-  }
-  if (authUserNameEl) {
-    authUserNameEl.textContent = signedIn ? (authState.user?.name || 'Prijavljeni korisnik') : '';
-  }
-  if (authUserEmailEl) {
-    authUserEmailEl.textContent = signedIn ? authState.user?.email || '' : '';
-  }
-  if (authAvatarEl) {
-    const initials = signedIn ? (authState.user?.name || authState.user?.email || '?').charAt(0).toUpperCase() : '';
-    authAvatarEl.textContent = initials;
-  }
-  if (googleSignOutBtn) {
-    googleSignOutBtn.hidden = !signedIn;
-  }
-
-  lockAuthControls(!signedIn);
-}
-
-function handleGoogleCredential(response) {
-  if (!response || !response.credential) {
-    updateAuthUI('Prijava nije uspjela. Pokušaj ponovno.');
-    setStatusChip('Prijava', 'error');
-    return;
-  }
-  const payload = decodeJwtPayload(response.credential) || {};
-  authState.idToken = response.credential;
-  authState.user = { name: payload.name || payload.email || 'Korisnik', email: payload.email || '' };
-  updateAuthUI();
-  setStatusChip('Spremno', 'success');
-}
-
-function handleGoogleSignOut() {
-  if (
-    authState.user &&
-    authState.user.email &&
-    window.google &&
-    window.google.accounts &&
-    window.google.accounts.id
-  ) {
-    window.google.accounts.id.revoke(authState.user.email, () => {});
-  }
-  authState.idToken = '';
-  authState.user = null;
-  updateAuthUI('Prijava je obavezna prije spremanja evidencije.');
-  setStatusChip('Prijava', 'info');
-}
-
-function triggerGooglePrompt() {
-  if (window.google && window.google.accounts && window.google.accounts.id && authState.ready) {
-    window.google.accounts.id.prompt();
-  } else {
-    updateAuthUI('Google prijava nije spremna. Provjeri GOOGLE_CLIENT_ID.');
-  }
-}
-
-function setupGoogleLogin() {
-  updateAuthUI('Prijava je obavezna prije spremanja evidencije.');
-
-  if (!googleSignInBtn) return;
-  if (!GOOGLE_CLIENT_ID) {
-    googleSignInBtn.textContent = 'Dodaj GOOGLE_CLIENT_ID u index.html';
-    lockAuthControls(true, 'Postavi Google OAuth client ID kako bi omogućio prijavu.');
-    return;
-  }
-
-  const attemptInit = () => {
-    if (window.google && window.google.accounts && window.google.accounts.id) {
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCredential,
-        auto_select: false,
-        ux_mode: 'popup'
-      });
-      window.google.accounts.id.renderButton(googleSignInBtn, {
-        theme: 'outline',
-        size: 'large',
-        shape: 'pill',
-        width: 240
-      });
-      authState.ready = true;
-      return;
-    }
-    setTimeout(attemptInit, 180);
-  };
-
-  attemptInit();
-
-  if (manualLoginBtn) {
-    manualLoginBtn.addEventListener('click', () => {
-      triggerGooglePrompt();
-    });
-  }
 }
 
 function formatWithTotal(current, total) {
@@ -1057,15 +902,6 @@ async function loadVolunteers() {
 async function handleSubmit(event) {
   event.preventDefault();
 
-  if (!authState.idToken) {
-    statusEl.style.color = 'red';
-    statusEl.textContent = 'Prijavi se Google računom prije spremanja.';
-    setStatusChip('Prijava', 'error');
-    lockAuthControls(true);
-    triggerGooglePrompt();
-    return;
-  }
-
   statusEl.style.color = '';
   statusEl.textContent = 'Spremanje termina u evidenciju...';
   setStatusChip('Spremanje', 'info');
@@ -1087,20 +923,11 @@ async function handleSubmit(event) {
   };
 
   try {
-    const headers = { 'Content-Type': 'application/json' };
-    if (authState.idToken) {
-      headers.Authorization = `Bearer ${authState.idToken}`;
-    }
-
     const res = await fetch(`${activeApiBase}/api/attendance`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-
-    if (res.status === 401) {
-      throw new Error('auth-required');
-    }
 
     if (!res.ok) {
       throw new Error('Network response was not ok');
@@ -1127,14 +954,6 @@ async function handleSubmit(event) {
     }
   } catch (err) {
     console.error(err);
-    if (err.message === 'auth-required') {
-      statusEl.style.color = 'red';
-      statusEl.textContent = 'Prijava je obavezna ili je istekla. Prijavi se ponovno.';
-      setStatusChip('Prijava', 'error');
-      handleGoogleSignOut();
-      lockAuthControls(true);
-      return;
-    }
     statusEl.style.color = 'red';
     statusEl.textContent = 'Doslo je do pogreske pri spremanju.';
     setStatusChip('Greska', 'error');
@@ -1143,9 +962,6 @@ async function handleSubmit(event) {
 
 function wireEvents() {
   formEl.addEventListener('submit', handleSubmit);
-  if (googleSignOutBtn) {
-    googleSignOutBtn.addEventListener('click', handleGoogleSignOut);
-  }
 
   sortToggleBtn.addEventListener('click', toggleSort);
 
@@ -1304,9 +1120,8 @@ function wireEvents() {
 
 document.addEventListener('DOMContentLoaded', () => {
   setupTabs();
-  wireEvents();
-  setupGoogleLogin();
   loadVolunteers();
+  wireEvents();
   if (dateInput && dateInput.value) {
     setDateInputDisplay(toIsoDate(dateInput.value));
   }
