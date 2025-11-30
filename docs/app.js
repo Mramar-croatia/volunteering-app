@@ -59,6 +59,7 @@ const authUserEmailEl = document.getElementById('auth-user-email');
 const authAvatarEl = document.getElementById('auth-avatar');
 const googleSignInBtn = document.getElementById('google-signin-btn');
 const googleSignOutBtn = document.getElementById('google-signout-btn');
+const manualLoginBtn = document.getElementById('manual-login-btn');
 const authWarningEl = document.getElementById('auth-warning');
 const authRequiredControls = document.querySelectorAll('[data-auth-required]');
 
@@ -214,6 +215,14 @@ function handleGoogleSignOut() {
   setStatusChip('Prijava', 'info');
 }
 
+function triggerGooglePrompt() {
+  if (window.google && window.google.accounts && window.google.accounts.id && authState.ready) {
+    window.google.accounts.id.prompt();
+  } else {
+    updateAuthUI('Google prijava nije spremna. Provjeri GOOGLE_CLIENT_ID.');
+  }
+}
+
 function setupGoogleLogin() {
   updateAuthUI('Prijava je obavezna prije spremanja evidencije.');
 
@@ -239,13 +248,18 @@ function setupGoogleLogin() {
         width: 240
       });
       authState.ready = true;
-      window.google.accounts.id.prompt();
       return;
     }
     setTimeout(attemptInit, 180);
   };
 
   attemptInit();
+
+  if (manualLoginBtn) {
+    manualLoginBtn.addEventListener('click', () => {
+      triggerGooglePrompt();
+    });
+  }
 }
 
 function formatWithTotal(current, total) {
@@ -1048,6 +1062,7 @@ async function handleSubmit(event) {
     statusEl.textContent = 'Prijavi se Google računom prije spremanja.';
     setStatusChip('Prijava', 'error');
     lockAuthControls(true);
+    triggerGooglePrompt();
     return;
   }
 
