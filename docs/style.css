@@ -167,6 +167,71 @@ p {
   gap: 12px;
 }
 
+/* Tabs */
+.tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tab-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.tab-btn {
+  position: relative;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  padding: 12px 14px;
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  color: var(--ink);
+}
+
+.tab-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(124, 58, 237, 0.5);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  color: #ffffff;
+  border-color: rgba(124, 58, 237, 0.85);
+  box-shadow: 0 20px 40px rgba(124, 58, 237, 0.25);
+}
+
+.tab-btn .tab-meta {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tab-btn.active .tab-meta {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+  animation: fadeIn 180ms ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .panel {
   background: var(--card);
   border-radius: 18px;
@@ -437,6 +502,11 @@ p {
   position: relative;
 }
 
+.table-wrapper.tall-table {
+  max-height: 520px;
+  min-height: 520px;
+}
+
 .roster-table {
   width: 100%;
   border-collapse: collapse;
@@ -482,6 +552,12 @@ p {
   font-size: 16px;
 }
 
+.roster-table.compact th,
+.roster-table.compact td {
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
 .col-hours,
 .col-present {
   width: 78px;
@@ -505,6 +581,24 @@ p {
   color: var(--muted);
   word-break: break-word;
   letter-spacing: 0.01em;
+}
+
+.col-location {
+  min-width: 140px;
+  max-width: 200px;
+}
+
+.col-volunteers {
+  min-width: 240px;
+}
+
+.col-phone {
+  min-width: 150px;
+}
+
+.col-date {
+  width: 130px;
+  min-width: 120px;
 }
 
 .roster-table tr:last-child td {
@@ -785,6 +879,10 @@ p {
 }
 
 @media (max-width: 960px) {
+  .tab-list {
+    grid-template-columns: 1fr;
+  }
+
   .layout {
     grid-template-columns: 1fr;
   }
@@ -823,6 +921,14 @@ p {
 }
 
 @media (max-width: 640px) {
+  .tab-btn {
+    padding: 12px;
+  }
+
+  .tab-btn .tab-meta {
+    font-size: 12px;
+  }
+
   .panel-header,
   .panel-body,
   .panel-footer {

@@ -34,124 +34,248 @@
   </header>
 
   <main class="page">
-    <form id="attendance-form" class="layout">
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h2>Održani termin</h2>
-          </div>
-          <div class="panel-chips">
-            <span class="pill pill-info uppercase" id="status-chip">SPREMNO</span>
-          </div>
-        </div>
-        <div class="panel-body">
-          <div class="field">
-            <label for="date">Datum</label>
-            <input
-              type="text"
-              id="date"
-              name="date"
-              inputmode="numeric"
-              placeholder="d.m.gggg."
-              required
-            />
-            <input type="date" id="date-picker" aria-hidden="true" class="visually-hidden" />
-          </div>
+    <div class="tabs">
+      <div class="tab-list" role="tablist" aria-label="Navigacija kartica">
+        <button
+          class="tab-btn active"
+          id="tab-entry-btn"
+          data-tab-target="tab-entry"
+          role="tab"
+          aria-controls="tab-entry"
+          aria-selected="true"
+        >
+          Evidencija unosa
+          <span class="tab-meta">Unos termina i označavanje volontera</span>
+        </button>
+        <button
+          class="tab-btn"
+          id="tab-database-btn"
+          data-tab-target="tab-database"
+          role="tab"
+          aria-controls="tab-database"
+          aria-selected="false"
+        >
+          Baza volontera
+          <span class="tab-meta">Pregled lista iz BAZA tablice</span>
+        </button>
+        <button
+          class="tab-btn"
+          id="tab-events-btn"
+          data-tab-target="tab-events"
+          role="tab"
+          aria-controls="tab-events"
+          aria-selected="false"
+        >
+          Popis događaja
+          <span class="tab-meta">Sve evidentirane termine</span>
+        </button>
+      </div>
 
-          <div class="field">
-            <label for="location">Lokacija</label>
-            <select id="location" name="location" required>
-              <option value="" disabled selected>Odaberi lokaciju</option>
-            </select>
-          </div>
+      <section
+        id="tab-entry"
+        class="tab-panel active"
+        role="tabpanel"
+        aria-labelledby="tab-entry-btn"
+      >
+        <form id="attendance-form" class="layout">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Održani termin</h2>
+              </div>
+              <div class="panel-chips">
+                <span class="pill pill-info uppercase" id="status-chip">SPREMNO</span>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="field">
+                <label for="date">Datum</label>
+                <input
+                  type="text"
+                  id="date"
+                  name="date"
+                  inputmode="numeric"
+                  placeholder="d.m.gggg."
+                  required
+                />
+                <input type="date" id="date-picker" aria-hidden="true" class="visually-hidden" />
+              </div>
 
-          <div class="field-inline spaced-row">
-            <div class="field">
-              <label for="childrenCount">Broj djece</label>
-              <input
-                type="number"
-                id="childrenCount"
-                name="childrenCount"
-                min="0"
-                required
-              />
+              <div class="field">
+                <label for="location">Lokacija</label>
+                <select id="location" name="location" required>
+                  <option value="" disabled selected>Odaberi lokaciju</option>
+                </select>
+              </div>
+
+              <div class="field-inline spaced-row">
+                <div class="field">
+                  <label for="childrenCount">Broj djece</label>
+                  <input
+                    type="number"
+                    id="childrenCount"
+                    name="childrenCount"
+                    min="0"
+                    required
+                  />
+                </div>
+
+                <div class="field">
+                  <label for="volunteerCount">Broj volontera</label>
+                  <input
+                    type="number"
+                    id="volunteerCount"
+                    name="volunteerCount"
+                    min="0"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="panel-footer">
+              <p class="hint">Prvo upiši podatke o terminu, zatim označi volontere.</p>
+            </div>
+          </section>
+
+          <section class="panel panel-wide">
+            <div class="panel-header">
+              <div>
+                <h2>Popis volontera</h2>
+                <p class="muted">Pretraži, sortiraj i označi volontere koji su došli.</p>
+              </div>
+              <div class="actions aligned-actions">
+                <button type="button" id="sort-toggle" class="ghost-btn">A-Z</button>
+                <button type="button" id="select-all-btn" class="ghost-btn">Označi sve vidljive</button>
+              </div>
             </div>
 
-            <div class="field">
-              <label for="volunteerCount">Broj volontera</label>
-              <input
-                type="number"
-                id="volunteerCount"
-                name="volunteerCount"
-                min="0"
-                required
-              />
+            <div class="filters">
+              <div class="search-group">
+                <input type="search" id="search-input" placeholder="Traži volontera..." />
+                <button type="button" id="clear-search" class="ghost-btn ghost-btn-small">Očisti</button>
+              </div>
+              <div class="legend">
+                <span class="pill pill-muted">Klik na red označava prisutnost</span>
+              </div>
             </div>
-          </div>
-        </div>
-        <div class="panel-footer">
-          <p class="hint">Prvo upiši podatke o terminu, zatim označi volontere.</p>
+
+            <div class="table-wrapper">
+              <table class="roster-table">
+                <thead>
+                  <tr>
+                    <th class="sortable col-name" data-sort-key="name">IME I PREZIME</th>
+                    <th class="sortable col-school" data-sort-key="school">ŠKOLA</th>
+                    <th class="sortable col-grade center" data-sort-key="grade">RAZRED</th>
+                    <th class="sortable col-locations" data-sort-key="locations">LOKACIJE</th>
+                    <th class="sortable col-hours center" data-sort-key="hours">SATI</th>
+                    <th class="center col-present"></th>
+                  </tr>
+                </thead>
+                <tbody id="volunteer-table-body">
+                  <tr class="empty-row">
+                    <td colspan="6">Lista se ucitava...</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div id="volunteer-cards" class="volunteer-cards">
+                <!-- mobile cards rendered via app.js -->
+              </div>
+            </div>
+          </section>
+
+          <section class="panel panel-actions">
+            <div class="actions">
+              <button type="submit" class="primary-btn">
+                Spremi evidenciju
+              </button>
+              <button type="reset" class="ghost-btn" id="reset-btn">
+                Očisti formu
+              </button>
+            </div>
+            <p id="status" class="status"></p>
+          </section>
+        </form>
+      </section>
+
+      <section
+        id="tab-database"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-database-btn"
+      >
+        <div class="layout">
+          <section class="panel panel-wide">
+            <div class="panel-header">
+              <div>
+                <h2>Baza volontera</h2>
+                <p class="muted">Podaci se učitavaju iz Google Sheeta "BAZA".</p>
+              </div>
+              <div class="panel-chips">
+                <span class="pill pill-muted uppercase">Samo za čitanje</span>
+              </div>
+            </div>
+            <div class="table-wrapper tall-table">
+              <table class="roster-table compact" id="baza-table">
+                <thead>
+                  <tr>
+                    <th class="col-name">IME I PREZIME</th>
+                    <th class="col-school">ŠKOLA</th>
+                    <th class="center col-grade">RAZRED</th>
+                    <th class="col-locations">LOKACIJE</th>
+                    <th class="col-phone">KONTAKT</th>
+                    <th class="center col-hours">SATI</th>
+                  </tr>
+                </thead>
+                <tbody id="baza-table-body">
+                  <tr class="empty-row">
+                    <td colspan="6">Lista se ucitava...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </section>
 
-      <section class="panel panel-wide">
-        <div class="panel-header">
-          <div>
-            <h2>Popis volontera</h2>
-            <p class="muted">Pretraži, sortiraj i označi volontere koji su došli.</p>
-          </div>
-          <div class="actions aligned-actions">
-            <button type="button" id="sort-toggle" class="ghost-btn">A-Z</button>
-            <button type="button" id="select-all-btn" class="ghost-btn">Oznaci sve vidljive</button>
-          </div>
-        </div>
-
-        <div class="filters">
-          <div class="search-group">
-            <input type="search" id="search-input" placeholder="Trazi volontera..." />
-            <button type="button" id="clear-search" class="ghost-btn ghost-btn-small">Ocisti</button>
-          </div>
-          <div class="legend">
-            <span class="pill pill-muted">Klik na red označava prisutnost</span>
-          </div>
-        </div>
-
-        <div class="table-wrapper">
-          <table class="roster-table">
-            <thead>
-              <tr>
-                <th class="sortable col-name" data-sort-key="name">IME I PREZIME</th>
-                <th class="sortable col-school" data-sort-key="school">ŠKOLA</th>
-                <th class="sortable col-grade center" data-sort-key="grade">RAZRED</th>
-                <th class="sortable col-locations" data-sort-key="locations">LOKACIJE</th>
-                <th class="sortable col-hours center" data-sort-key="hours">SATI</th>
-                <th class="center col-present"></th>
-              </tr>
-            </thead>
-            <tbody id="volunteer-table-body">
-              <tr class="empty-row">
-                <td colspan="6">Lista se ucitava...</td>
-              </tr>
-            </tbody>
-          </table>
-          <div id="volunteer-cards" class="volunteer-cards">
-            <!-- mobile cards rendered via app.js -->
-          </div>
+      <section
+        id="tab-events"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-events-btn"
+      >
+        <div class="layout">
+          <section class="panel panel-wide">
+            <div class="panel-header">
+              <div>
+                <h2>Popis događaja</h2>
+                <p class="muted">Pregled svih zapisa iz tablice "Evidencija".</p>
+              </div>
+              <div class="panel-chips">
+                <span class="pill pill-muted">Klik na zaglavlja za sortiranje</span>
+              </div>
+            </div>
+            <div class="table-wrapper tall-table">
+              <table class="roster-table compact" id="events-table">
+                <thead>
+                  <tr>
+                    <th class="sortable col-date" data-events-sort="date">DATUM</th>
+                    <th class="sortable col-location" data-events-sort="location">LOKACIJA</th>
+                    <th class="sortable center" data-events-sort="childrenCount">BROJ DJECE</th>
+                    <th class="sortable center" data-events-sort="volunteerCount">BROJ VOLONTERA</th>
+                    <th class="sortable col-volunteers" data-events-sort="volunteers">VOLONTERI</th>
+                  </tr>
+                </thead>
+                <tbody id="events-table-body">
+                  <tr class="empty-row">
+                    <td colspan="5">Evidencija se ucitava...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </section>
-
-      <section class="panel panel-actions">
-        <div class="actions">
-          <button type="submit" class="primary-btn">
-            Spremi evidenciju
-          </button>
-          <button type="reset" class="ghost-btn" id="reset-btn">
-            Ocisti formu
-          </button>
-        </div>
-        <p id="status" class="status"></p>
-      </section>
-    </form>
+    </div>
   </main>
 
   <footer class="footer">

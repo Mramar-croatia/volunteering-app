@@ -20,6 +20,10 @@ function getCandidateBases() {
 
 const volunteerTableBody = document.getElementById('volunteer-table-body');
 const volunteerCardsEl = document.getElementById('volunteer-cards');
+const bazaTableBody = document.getElementById('baza-table-body');
+const eventsTableBody = document.getElementById('events-table-body');
+const tabButtons = document.querySelectorAll('[data-tab-target]');
+const tabPanels = document.querySelectorAll('.tab-panel');
 const formEl = document.getElementById('attendance-form');
 const statusEl = document.getElementById('status');
 const statusChip = document.getElementById('status-chip');
@@ -43,6 +47,9 @@ let selectedLocationFilter = '';
 let sortableHeaders = [];
 let existingAttendance = [];
 let currentIsoDate = '';
+let eventSortKey = 'date';
+let eventSortDirection = 'desc';
+let eventSortableHeaders = [];
 
 function parseLocations(vol) {
   if (Array.isArray(vol.locations)) {
@@ -88,6 +95,37 @@ function updateCounts() {
 function applyResponsiveLayout() {
   const isMobile = window.matchMedia('(max-width: 720px)').matches;
   document.body.classList.toggle('mobile-active', isMobile);
+}
+
+function setActiveTab(targetId) {
+  if (!tabButtons.length || !tabPanels.length) return;
+
+  tabButtons.forEach(btn => {
+    const isActive = btn.getAttribute('data-tab-target') === targetId;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    btn.tabIndex = isActive ? 0 : -1;
+  });
+
+  tabPanels.forEach(panel => {
+    const isActive = panel.id === targetId;
+    panel.classList.toggle('active', isActive);
+    panel.hidden = !isActive;
+  });
+}
+
+function setupTabs() {
+  if (!tabButtons.length || !tabPanels.length) return;
+  const defaultTab = Array.from(tabButtons).find(btn => btn.classList.contains('active'));
+  const initialTarget = defaultTab ? defaultTab.getAttribute('data-tab-target') : (tabButtons[0] && tabButtons[0].getAttribute('data-tab-target'));
+  setActiveTab(initialTarget);
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-tab-target');
+      setActiveTab(target);
+    });
+  });
 }
 
 function captureSelection() {
@@ -281,6 +319,71 @@ function renderVolunteers() {
   updateCounts();
 }
 
+function renderVolunteerDatabaseTable() {
+  if (!bazaTableBody) return;
+  bazaTableBody.innerHTML = '';
+
+  if (!allVolunteers.length) {
+    const row = document.createElement('tr');
+    row.className = 'empty-row';
+    const cell = document.createElement('td');
+    cell.colSpan = 6;
+    cell.textContent = 'Lista je prazna.';
+    row.appendChild(cell);
+    bazaTableBody.appendChild(row);
+    return;
+  }
+
+  const sorted = [...allVolunteers].sort((a, b) =>
+    (a.name || '').toString().localeCompare((b.name || '').toString(), 'hr', { sensitivity: 'base' })
+  );
+
+  sorted.forEach(vol => {
+    const row = document.createElement('tr');
+
+    const nameCell = document.createElement('td');
+    nameCell.className = 'col-name';
+    nameCell.textContent = vol.name || 'N/A';
+    row.appendChild(nameCell);
+
+    const schoolCell = document.createElement('td');
+    schoolCell.className = 'col-school';
+    const schoolTag = document.createElement('span');
+    schoolTag.className = 'pill-tag';
+    schoolTag.textContent = vol.school || 'N/A';
+    schoolTag.style.background = colorForSchool(vol.school || '');
+    schoolCell.appendChild(schoolTag);
+    row.appendChild(schoolCell);
+
+    const gradeCell = document.createElement('td');
+    gradeCell.className = 'center col-grade';
+    const gradeTag = document.createElement('span');
+    gradeTag.className = 'pill-tag grade';
+    gradeTag.textContent = displayGrade(vol.grade);
+    gradeTag.style.background = colorForGrade(vol.grade || '');
+    gradeCell.appendChild(gradeTag);
+    row.appendChild(gradeCell);
+
+    const locCell = document.createElement('td');
+    locCell.className = 'col-locations';
+    const locationsList = parseLocations(vol);
+    locCell.textContent = locationsList.length ? locationsList.join(', ') : '—';
+    row.appendChild(locCell);
+
+    const phoneCell = document.createElement('td');
+    phoneCell.className = 'col-phone';
+    phoneCell.textContent = vol.phone || '—';
+    row.appendChild(phoneCell);
+
+    const hoursCell = document.createElement('td');
+    hoursCell.className = 'center col-hours';
+    hoursCell.textContent = vol.hours || '0';
+    row.appendChild(hoursCell);
+
+    bazaTableBody.appendChild(row);
+  });
+}
+
 function applyFilters() {
   captureSelection();
   const query = searchInput.value.trim().toLowerCase();
@@ -441,6 +544,7 @@ async function loadVolunteers() {
     allVolunteers = volunteers;
     filteredVolunteers = [...allVolunteers];
     renderVolunteers();
+    renderVolunteerDatabaseTable();
     refreshSortIndicators();
     statusEl.textContent = '';
     setStatusChip('Spremno', 'success');
@@ -456,6 +560,12 @@ async function loadVolunteers() {
       <tr class="empty-row">
         <td colspan="6">Ne mogu ucitati listu volontera.</td>
       </tr>`;
+    if (bazaTableBody) {
+      bazaTableBody.innerHTML = `
+        <tr class="empty-row">
+          <td colspan="6">Ne mogu ucitati bazu.</td>
+        </tr>`;
+    }
     setStatusChip('Greska', 'error');
   } finally {
     updateCounts();
@@ -585,6 +695,22 @@ function wireEvents() {
   });
   refreshSortIndicators();
 
+  eventSortableHeaders = Array.from(document.querySelectorAll('[data-events-sort]'));
+  eventSortableHeaders.forEach(header => {
+    header.addEventListener('click', () => {
+      const key = header.getAttribute('data-events-sort');
+      if (eventSortKey === key) {
+        eventSortDirection = eventSortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        eventSortKey = key;
+        eventSortDirection = key === 'date' ? 'desc' : 'asc';
+      }
+      refreshEventSortIndicators();
+      renderEventsList();
+    });
+  });
+  refreshEventSortIndicators();
+
   formEl.addEventListener('reset', () => {
     selectedNames.clear();
     sortDirection = 'asc';
@@ -612,6 +738,7 @@ function wireEvents() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  setupTabs();
   loadVolunteers();
   wireEvents();
   if (dateInput && dateInput.value) {
@@ -628,6 +755,100 @@ function refreshSortIndicators() {
   if (active) {
     active.classList.add(sortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
   }
+}
+
+function refreshEventSortIndicators() {
+  if (!eventSortableHeaders.length) return;
+  eventSortableHeaders.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+  const active = eventSortableHeaders.find(h => h.getAttribute('data-events-sort') === eventSortKey);
+  if (active) {
+    active.classList.add(eventSortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
+  }
+}
+
+function renderEventsList() {
+  if (!eventsTableBody) return;
+  eventsTableBody.innerHTML = '';
+
+  if (!existingAttendance.length) {
+    const row = document.createElement('tr');
+    row.className = 'empty-row';
+    const cell = document.createElement('td');
+    cell.colSpan = 5;
+    cell.textContent = 'Evidencija je prazna ili se ucitava.';
+    row.appendChild(cell);
+    eventsTableBody.appendChild(row);
+    return;
+  }
+
+  const sorted = [...existingAttendance];
+  sorted.sort((a, b) => {
+    const getValue = entry => {
+      switch (eventSortKey) {
+        case 'location':
+          return (entry.location || '').toString();
+        case 'childrenCount':
+          return Number.parseInt(entry.childrenCount, 10) || 0;
+        case 'volunteerCount':
+          return Number.parseInt(entry.volunteerCount, 10) || 0;
+        case 'volunteers':
+          return (entry.volunteers || '').toString();
+        case 'date':
+        default: {
+          const iso = normalizeDate(entry.date);
+          return iso ? new Date(iso).getTime() : 0;
+        }
+      }
+    };
+
+    const valA = getValue(a);
+    const valB = getValue(b);
+
+    if (typeof valA === 'number' && typeof valB === 'number') {
+      return eventSortDirection === 'asc' ? valA - valB : valB - valA;
+    }
+
+    const compare = (first, second) =>
+      first.toString().localeCompare(second.toString(), 'hr', { sensitivity: 'base' });
+
+    return eventSortDirection === 'asc' ? compare(valA, valB) : compare(valB, valA);
+  });
+
+  sorted.forEach(entry => {
+    const row = document.createElement('tr');
+
+    const iso = normalizeDate(entry.date);
+    const displayDate = formatDateForDisplay(iso) || entry.date || '—';
+
+    const dateCell = document.createElement('td');
+    dateCell.className = 'col-date';
+    dateCell.textContent = displayDate;
+    row.appendChild(dateCell);
+
+    const locCell = document.createElement('td');
+    locCell.className = 'col-location';
+    locCell.textContent = entry.location || '—';
+    row.appendChild(locCell);
+
+    const childCell = document.createElement('td');
+    childCell.className = 'center';
+    childCell.textContent = entry.childrenCount || '0';
+    row.appendChild(childCell);
+
+    const volCountCell = document.createElement('td');
+    volCountCell.className = 'center';
+    volCountCell.textContent = entry.volunteerCount || '0';
+    row.appendChild(volCountCell);
+
+    const volunteersCell = document.createElement('td');
+    volunteersCell.className = 'col-volunteers';
+    volunteersCell.textContent = entry.volunteers || '—';
+    row.appendChild(volunteersCell);
+
+    eventsTableBody.appendChild(row);
+  });
+
+  refreshEventSortIndicators();
 }
 
 async function loadExistingAttendance() {
@@ -652,6 +873,8 @@ async function loadExistingAttendance() {
   } catch (err) {
     console.error('Failed to load evidencija', err);
     existingAttendance = [];
+  } finally {
+    renderEventsList();
   }
 }
 
