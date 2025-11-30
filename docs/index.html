@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Zlatni zmaj - Evidencija</title>
   <link rel="stylesheet" href="style.css" />
+  <script>
+    // Set this to your Google OAuth client ID (also used on the backend as GOOGLE_OAUTH_CLIENT_ID).
+    window.GOOGLE_CLIENT_ID = window.GOOGLE_CLIENT_ID || '';
+  </script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <header class="hero">
@@ -206,6 +211,33 @@
         aria-labelledby="tab-unos-btn"
       >
         <form id="attendance-form" class="layout">
+          <section class="panel panel-auth" id="auth-panel">
+            <div class="panel-header auth-header">
+              <div>
+                <h2>Prijava za unos</h2>
+                <p class="muted">Google prijava je potrebna za spremanje evidencije.</p>
+              </div>
+              <div class="auth-actions">
+                <div id="google-signin-btn" class="google-btn-slot" aria-live="polite"></div>
+                <button type="button" id="google-signout-btn" class="ghost-btn ghost-btn-small" hidden>
+                  Odjava
+                </button>
+              </div>
+            </div>
+            <div class="auth-body">
+              <div class="auth-user" id="auth-user" hidden>
+                <div class="auth-avatar" id="auth-avatar" aria-hidden="true"></div>
+                <div>
+                  <div class="auth-name" id="auth-user-name"></div>
+                  <div class="auth-email" id="auth-user-email"></div>
+                </div>
+              </div>
+              <div class="auth-hint">
+                <span class="pill pill-info" id="auth-badge">PRIJAVA POTREBNA</span>
+                <p id="auth-message">Prijavi se Google računom kako bi otključao unos.</p>
+              </div>
+            </div>
+          </section>
           <section class="panel">
             <div class="panel-header">
               <div>
@@ -314,13 +346,14 @@
 
           <section class="panel panel-actions">
             <div class="actions">
-              <button type="submit" class="primary-btn">
+              <button type="submit" class="primary-btn" data-auth-required="true" disabled>
                 Spremi evidenciju
               </button>
               <button type="reset" class="ghost-btn" id="reset-btn">
                 Očisti unos
               </button>
             </div>
+            <p class="auth-warning" id="auth-warning">Prijava je potrebna za spremanje.</p>
             <p id="status" class="status"></p>
           </section>
         </form>

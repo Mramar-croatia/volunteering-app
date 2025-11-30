@@ -4,17 +4,20 @@
 const express = require('express');
 const cors = require('cors');
 const { google } = require('googleapis');
+const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 // Environment-driven configuration
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID;
 const ROSTER_RANGE = 'BAZA!A2:I';
 const ATTENDANCE_SHEET = 'EVIDENCIJA';
 const ATTENDANCE_RANGE = `${ATTENDANCE_SHEET}!A:E`;
 const ATTENDANCE_HEADER_RANGE = `${ATTENDANCE_SHEET}!A1:E1`;
 const ATTENDANCE_HEADERS = ['DATUM', 'LOKACIJA', 'BROJ DJECE', 'BROJ VOLONTERA', 'VOLONTERI'];
+const oauthClient = GOOGLE_OAUTH_CLIENT_ID ? new OAuth2Client(GOOGLE_OAUTH_CLIENT_ID) : null;
 
 if (!SPREADSHEET_ID) {
   console.warn('Warning: SPREADSHEET_ID is not set. API calls will fail until it is provided.');
@@ -100,6 +103,41 @@ function formatDateToDDMMYYYY(isoDate) {
   return `${day}/${month}/${year}`;
 }
 
+async function verifyGoogleIdToken(idToken) {
+  if (!oauthClient) {
+    throw new Error('GOOGLE_OAUTH_CLIENT_ID is not configured');
+  }
+  const ticket = await oauthClient.verifyIdToken({
+    idToken,
+    audience: GOOGLE_OAUTH_CLIENT_ID
+  });
+  const payload = ticket.getPayload();
+  return {
+    email: payload.email,
+    name: payload.name,
+    picture: payload.picture,
+    userId: payload.sub
+  };
+}
+
+async function requireGoogleAuth(req, res, next) {
+  if (!GOOGLE_OAUTH_CLIENT_ID) {
+    return res.status(500).json({ error: 'Missing GOOGLE_OAUTH_CLIENT_ID env var' });
+  }
+  const header = req.headers.authorization || '';
+  const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!idToken) {
+    return res.status(401).json({ error: 'Google sign-in required' });
+  }
+  try {
+    req.googleUser = await verifyGoogleIdToken(idToken);
+    next();
+  } catch (err) {
+    console.error('Failed to verify Google ID token', err);
+    res.status(401).json({ error: 'Invalid Google sign-in' });
+  }
+}
+
 function validateAttendancePayload(data) {
   if (!data) return { ok: false, message: 'Missing request body' };
 
@@ -171,7 +209,7 @@ app.get('/health', (req, res) => {
  *   "selected": ["Name1", "Name2"]
  * }
  */
-app.post('/api/attendance', async (req, res) => {
+app.post('/api/attendance', requireGoogleAuth, async (req, res) => {
   if (!assertSpreadsheetId(res)) return;
   try {
     const validation = validateAttendancePayload(req.body);
