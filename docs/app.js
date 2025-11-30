@@ -85,6 +85,11 @@ function updateCounts() {
   statSelectedEl.textContent = selectedNames.size;
 }
 
+function applyResponsiveLayout() {
+  const isMobile = window.matchMedia('(max-width: 720px)').matches;
+  document.body.classList.toggle('mobile-active', isMobile);
+}
+
 function captureSelection() {
   volunteerTableBody.querySelectorAll('.present-checkbox').forEach(cb => {
     if (cb.checked) {
@@ -604,6 +609,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (dateInput && dateInput.value) {
     setDateInputDisplay(toIsoDate(dateInput.value));
   }
+  applyResponsiveLayout();
+  window.addEventListener('resize', applyResponsiveLayout);
 });
 
 function refreshSortIndicators() {

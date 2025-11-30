@@ -396,6 +396,7 @@ p {
   min-height: 420px;
   overflow: auto;
   overflow-x: auto;
+  position: relative;
 }
 
 .roster-table {
@@ -699,11 +700,6 @@ p {
     font-size: 14px;
   }
 
-  .field-inline.date-field {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
-
   .roster-table {
     display: none;
   }
@@ -713,4 +709,22 @@ p {
     grid-template-columns: 1fr;
     margin-top: 6px;
   }
+}
+
+/* Responsive toggle class driven by JS */
+.mobile-active .roster-table {
+  display: none;
+}
+
+.mobile-active .volunteer-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.mobile-active .table-wrapper {
+  max-height: none;
+  min-height: 0;
+  overflow: visible;
 }
