@@ -316,14 +316,17 @@ function parseStatisticsTsv(tsvText) {
   }
 
   if (schoolRows.length) {
+    const filteredSchools =
+      schoolRows.filter(r => (toNumber(r.arrivals) || 0) >= 10) || [];
+    const rowsForChart = filteredSchools.length ? filteredSchools : schoolRows;
     charts.push({
       id: 'school-active',
       title: 'Aktivni volonteri po školi',
       type: 'bar',
-      labels: schoolRows.map(r => r.school),
+      labels: rowsForChart.map(r => r.school),
       datasets: [
-        { label: 'Aktivni', data: schoolRows.map(r => toNumber(r.active) || 0) },
-        { label: 'Dolazaka', data: schoolRows.map(r => toNumber(r.arrivals) || 0) }
+        { label: 'Aktivni', data: rowsForChart.map(r => toNumber(r.active) || 0) },
+        { label: 'Dolazaka', data: rowsForChart.map(r => toNumber(r.arrivals) || 0) }
       ]
     });
   }

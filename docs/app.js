@@ -80,6 +80,8 @@ let eventsFiltered = [];
 let activeTabId = 'tab-baza';
 let statisticsData = null;
 let statsChartInstances = [];
+let statsTablesData = {};
+let statsSortState = {};
 
 function parseLocations(vol) {
   if (Array.isArray(vol.locations)) {
@@ -1452,21 +1454,49 @@ function renderStatsSummary(cards = []) {
     if (card.delta) {
       const delta = document.createElement('div');
       delta.className = 'delta';
-      delta.textContent = card.delta;
+      const deltaText = String(card.delta).trim();
+      delta.textContent = deltaText;
+      if (deltaText.startsWith('+')) {
+        delta.classList.add('positive');
+      } else if (deltaText.startsWith('-')) {
+        delta.classList.add('negative');
+      }
       wrap.appendChild(delta);
     }
     statsSummaryEl.appendChild(wrap);
   });
 }
 
-function buildStatsTable(columns = [], rows = []) {
+function buildStatsTable(columns = [], rows = [], tableId = '') {
   const table = document.createElement('table');
   table.className = 'roster-table compact';
   const thead = document.createElement('thead');
   const headRow = document.createElement('tr');
-  columns.forEach(col => {
+  columns.forEach((col, idx) => {
     const th = document.createElement('th');
-    th.textContent = col;
+    const label = document.createElement('span');
+    label.textContent = col;
+    th.appendChild(label);
+    th.classList.add('sortable');
+    th.tabIndex = 0;
+    const indicator = document.createElement('span');
+    indicator.className = 'sort-indicator';
+    const sortState = statsSortState[tableId];
+    if (sortState && sortState.col === idx) {
+      indicator.textContent = sortState.dir === 'asc' ? '▲' : '▼';
+    } else {
+      indicator.textContent = '';
+    }
+    th.appendChild(indicator);
+    th.addEventListener('click', () => {
+      handleStatsSort(tableId, idx);
+    });
+    th.addEventListener('keypress', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleStatsSort(tableId, idx);
+      }
+    });
     headRow.appendChild(th);
   });
   thead.appendChild(headRow);
@@ -1508,20 +1538,66 @@ function renderStatsTables(tables = []) {
     if (host) host.innerHTML = '';
   });
 
+  statsTablesData = {};
+
   tables.forEach(table => {
     const host = hostMap[table.id];
     if (!host) return;
+    statsTablesData[table.id] = { columns: table.columns, rows: table.rows, title: table.title };
     host.innerHTML = '';
     const card = document.createElement('div');
     card.className = 'stats-table-card';
     const title = document.createElement('div');
     title.className = 'stats-table-title';
     title.textContent = table.title || '';
-    const tableEl = buildStatsTable(table.columns, table.rows);
+    const tableEl = buildStatsTable(table.columns, table.rows, table.id);
     card.appendChild(title);
     card.appendChild(tableEl);
     host.appendChild(card);
   });
+}
+
+function handleStatsSort(tableId, colIndex) {
+  const data = statsTablesData[tableId];
+  if (!data) return;
+  const current = statsSortState[tableId] || { col: colIndex, dir: 'asc' };
+  const nextDir = current.col === colIndex && current.dir === 'asc' ? 'desc' : 'asc';
+  statsSortState[tableId] = { col: colIndex, dir: nextDir };
+
+  const rows = [...data.rows];
+  rows.sort((a, b) => {
+    const valA = a[colIndex] || '';
+    const valB = b[colIndex] || '';
+    const numA = Number.parseFloat(String(valA).replace(',', '.'));
+    const numB = Number.parseFloat(String(valB).replace(',', '.'));
+    if (!Number.isNaN(numA) && !Number.isNaN(numB)) {
+      return nextDir === 'asc' ? numA - numB : numB - numA;
+    }
+    return nextDir === 'asc'
+      ? String(valA).localeCompare(String(valB), 'hr', { sensitivity: 'base' })
+      : String(valB).localeCompare(String(valA), 'hr', { sensitivity: 'base' });
+  });
+
+  statsTablesData[tableId].rows = rows;
+  const host =
+    tableId === 'by-location'
+      ? statsTables.location
+      : tableId === 'by-school'
+      ? statsTables.school
+      : tableId === 'by-grade'
+      ? statsTables.grade
+      : null;
+  if (!host) return;
+  host.innerHTML = '';
+  const card = document.createElement('div');
+  card.className = 'stats-table-card';
+  const title = document.createElement('div');
+  title.className = 'stats-table-title';
+  title.textContent = data.title || '';
+  const tableEl = buildStatsTable(data.columns, rows, tableId);
+  card.appendChild(title);
+  card.appendChild(tableEl);
+  host.appendChild(card);
 }
 
 function destroyStatsCharts() {
@@ -1555,6 +1631,10 @@ function renderStatsCharts(charts = []) {
     title.textContent = chart.title || 'Graf';
     const canvasWrap = document.createElement('div');
     canvasWrap.className = 'chart-canvas';
+    if (chartIndex === 1) {
+      canvasWrap.style.minHeight = '520px';
+      card.style.minHeight = '620px';
+    }
     const canvas = document.createElement('canvas');
     canvas.id = `chart-${chart.id || chartIndex}`;
     canvasWrap.appendChild(canvas);
@@ -1563,6 +1643,8 @@ function renderStatsCharts(charts = []) {
     statsChartsEl.appendChild(card);
 
     if (typeof Chart !== 'undefined') {
+      const isTightBars = chartIndex === 0 || chartIndex === 2;
+
       const datasets = (chart.datasets || []).map((ds, idx) => {
         const color = palette[idx % palette.length];
         const isLine = ds.type === 'line' || chart.type === 'line';
@@ -1576,9 +1658,16 @@ function renderStatsCharts(charts = []) {
           tension: 0.2,
           fill: !isLine,
           borderRadius: isLine ? 0 : 6,
-          maxBarThickness: 44
+          maxBarThickness: 38,
+          categoryPercentage: isLine ? 1 : isTightBars ? 0.45 : 0.7,
+          barPercentage: isLine ? 1 : isTightBars ? 0.95 : 0.7
         };
       });
+
+      const xTickRotation =
+        chartIndex === 0 || chartIndex === 2
+          ? { maxRotation: 0, minRotation: 0 }
+          : { maxRotation: 65, minRotation: 55 };
 
       const options = {
         responsive: true,
@@ -1592,7 +1681,8 @@ function renderStatsCharts(charts = []) {
             ticks: { precision: 0 }
           },
           x: {
-            grid: { display: false }
+            grid: { display: false },
+            ticks: xTickRotation
           }
         },
         ...chart.options
