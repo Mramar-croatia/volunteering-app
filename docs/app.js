@@ -21,6 +21,17 @@ function getCandidateBases() {
 const volunteerTableBody = document.getElementById('volunteer-table-body');
 const volunteerCardsEl = document.getElementById('volunteer-cards');
 const bazaTableBody = document.getElementById('baza-table-body');
+const bazaSearchInput = document.getElementById('baza-search');
+const bazaClearSearchBtn = document.getElementById('baza-clear-search');
+const bazaSchoolFilter = document.getElementById('baza-school-filter');
+const bazaLocationFilter = document.getElementById('baza-location-filter');
+const bazaGradeFilter = document.getElementById('baza-grade-filter');
+const bazaCardsEl = document.getElementById('baza-cards');
+const eventsCardsEl = document.getElementById('events-cards');
+const eventsSearchInput = document.getElementById('events-search');
+const eventsClearSearchBtn = document.getElementById('events-clear-search');
+const eventsLocationFilter = document.getElementById('events-location-filter');
+const eventsYearFilter = document.getElementById('events-year-filter');
 const eventsTableBody = document.getElementById('events-table-body');
 const tabButtons = document.querySelectorAll('[data-tab-target]');
 const tabPanels = document.querySelectorAll('.tab-panel');
@@ -29,17 +40,21 @@ const statusEl = document.getElementById('status');
 const statusChip = document.getElementById('status-chip');
 const sortToggleBtn = document.getElementById('sort-toggle');
 const selectAllBtn = document.getElementById('select-all-btn');
+const deselectAllBtn = document.getElementById('deselect-all-btn');
 const searchInput = document.getElementById('search-input');
 const clearSearchBtn = document.getElementById('clear-search');
 const resetBtn = document.getElementById('reset-btn');
 const statTotalEl = document.getElementById('stat-total');
 const statSelectedEl = document.getElementById('stat-selected');
+const statTotalLabel = document.getElementById('stat-total-label');
+const statSelectedLabel = document.getElementById('stat-selected-label');
 const locationSelect = document.getElementById('location');
 const dateInput = document.getElementById('date'); // visible text input
 const datePicker = document.getElementById('date-picker'); // hidden native picker
 
 let allVolunteers = [];
 let filteredVolunteers = [];
+let bazaFiltered = [];
 let selectedNames = new Set();
 let sortDirection = 'asc';
 let sortKey = 'name';
@@ -50,6 +65,11 @@ let currentIsoDate = '';
 let eventSortKey = 'date';
 let eventSortDirection = 'desc';
 let eventSortableHeaders = [];
+let bazaSortKey = 'name';
+let bazaSortDirection = 'asc';
+let bazaSortableHeaders = [];
+let eventsFiltered = [];
+let activeTabId = 'tab-baza';
 
 function parseLocations(vol) {
   if (Array.isArray(vol.locations)) {
@@ -87,9 +107,59 @@ function setStatusChip(text, tone = 'info') {
   statusChip.style.borderColor = toneColors.border;
 }
 
+function formatWithTotal(current, total) {
+  if (Number.isFinite(current) && Number.isFinite(total)) {
+    return `${current} (${total})`;
+  }
+  const safeCurrent = current ?? '-';
+  const safeTotal = total ?? '-';
+  return `${safeCurrent} (${safeTotal})`;
+}
+
+function refreshHeroStats() {
+  if (!statTotalEl || !statSelectedEl || !statTotalLabel || !statSelectedLabel) return;
+
+  const labels = {
+    'tab-unos': { total: 'Na listi', secondary: 'Označeno' },
+    'tab-baza': { total: 'Volontera', secondary: 'Sati' },
+    'tab-termini': { total: 'Broj termina', secondary: 'Lokacije' }
+  };
+
+  const activeLabels = labels[activeTabId] || labels['tab-unos'];
+  statTotalLabel.textContent = activeLabels.total;
+  statSelectedLabel.textContent = activeLabels.secondary.toUpperCase();
+
+  let totalValue = '-';
+  let secondaryValue = '-';
+
+  if (activeTabId === 'tab-unos') {
+    totalValue = allVolunteers.length;
+    secondaryValue = selectedNames.size;
+  } else if (activeTabId === 'tab-baza') {
+    const totalCount = allVolunteers.length;
+    const filteredCount = bazaFiltered.length || 0;
+    const totalHours = allVolunteers.reduce((sum, v) => sum + (Number.parseFloat(v.hours || '0') || 0), 0);
+    const filteredHours = bazaFiltered.reduce((sum, v) => sum + (Number.parseFloat(v.hours || '0') || 0), 0);
+
+    totalValue = formatWithTotal(filteredCount, totalCount);
+    secondaryValue = formatWithTotal(filteredHours, totalHours);
+  } else if (activeTabId === 'tab-termini') {
+    const totalEvents = existingAttendance.length;
+    const filteredEvents = eventsFiltered.length || 0;
+    const totalLocations = new Set(existingAttendance.map(e => (e.location || '').trim().toLowerCase()).filter(Boolean));
+    const filteredLocations = new Set(eventsFiltered.map(e => (e.location || '').trim().toLowerCase()).filter(Boolean));
+
+    totalValue = formatWithTotal(filteredEvents, totalEvents);
+    // For Lokacije, show only the filtered unique count (no total).
+    secondaryValue = filteredLocations.size || 0;
+  }
+
+  statTotalEl.textContent = totalValue;
+  statSelectedEl.textContent = secondaryValue;
+}
+
 function updateCounts() {
-  statTotalEl.textContent = allVolunteers.length;
-  statSelectedEl.textContent = selectedNames.size;
+  refreshHeroStats();
 }
 
 function applyResponsiveLayout() {
@@ -99,6 +169,7 @@ function applyResponsiveLayout() {
 
 function setActiveTab(targetId) {
   if (!tabButtons.length || !tabPanels.length) return;
+  activeTabId = targetId;
 
   tabButtons.forEach(btn => {
     const isActive = btn.getAttribute('data-tab-target') === targetId;
@@ -112,6 +183,8 @@ function setActiveTab(targetId) {
     panel.classList.toggle('active', isActive);
     panel.hidden = !isActive;
   });
+
+  refreshHeroStats();
 }
 
 function setupTabs() {
@@ -212,17 +285,19 @@ function renderVolunteers() {
     presentCell.className = 'center col-present';
     const pill = document.createElement('div');
     pill.className = 'checkbox-pill';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.value = vol.name;
-    checkbox.className = 'present-checkbox';
-    checkbox.checked = selectedNames.has(vol.name);
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = vol.name;
+      checkbox.className = 'present-checkbox';
+      checkbox.checked = selectedNames.has(vol.name);
     checkbox.addEventListener('click', ev => ev.stopPropagation());
     checkbox.addEventListener('change', ev => {
       if (ev.target.checked) {
         selectedNames.add(vol.name);
+        row.classList.add('selected');
       } else {
         selectedNames.delete(vol.name);
+        row.classList.remove('selected');
       }
       updateCounts();
     });
@@ -234,6 +309,10 @@ function renderVolunteers() {
       checkbox.checked = !checkbox.checked;
       checkbox.dispatchEvent(new Event('change'));
     });
+
+    if (selectedNames.has(vol.name)) {
+      row.classList.add('selected');
+    }
 
     volunteerTableBody.appendChild(row);
 
@@ -254,6 +333,14 @@ function renderVolunteers() {
 
       top.appendChild(title);
 
+      const meta = document.createElement('div');
+      meta.className = 'vol-card-meta';
+      const schoolEl = document.createElement('span');
+      schoolEl.className = 'pill-tag';
+      schoolEl.style.background = colorForSchool(vol.school || '');
+      schoolEl.textContent = vol.school || 'N/A';
+      meta.appendChild(schoolEl);
+
       const statsRow = document.createElement('div');
       statsRow.className = 'vol-card-stats';
       const gradeEl = document.createElement('span');
@@ -264,14 +351,6 @@ function renderVolunteers() {
       hoursEl.innerHTML = `<span class="stat-label">SATI</span><strong>${vol.hours || '0'}</strong>`;
       statsRow.appendChild(gradeEl);
       statsRow.appendChild(hoursEl);
-
-      const meta = document.createElement('div');
-      meta.className = 'vol-card-meta';
-      const schoolEl = document.createElement('span');
-      schoolEl.className = 'pill-tag';
-      schoolEl.style.background = colorForSchool(vol.school || '');
-      schoolEl.textContent = vol.school || 'N/A';
-      meta.appendChild(schoolEl);
 
       const checkboxWrap = document.createElement('label');
       checkboxWrap.className = 'vol-card-presence';
@@ -291,8 +370,10 @@ function renderVolunteers() {
       mobileCheckbox.addEventListener('change', ev => {
         if (ev.target.checked) {
           selectedNames.add(vol.name);
+          card.classList.add('selected');
         } else {
           selectedNames.delete(vol.name);
+          card.classList.remove('selected');
         }
         // sync desktop checkbox
         const desktopCb = volunteerTableBody.querySelector(`input[type="checkbox"][value="${CSS.escape(vol.name)}"]`);
@@ -301,8 +382,8 @@ function renderVolunteers() {
       });
 
       card.appendChild(top);
-      card.appendChild(statsRow);
       card.appendChild(meta);
+      card.appendChild(statsRow);
       card.appendChild(checkboxWrap);
       card.addEventListener('click', ev => {
         if (ev.target.tagName.toLowerCase() === 'input') {
@@ -312,6 +393,10 @@ function renderVolunteers() {
         mobileCheckbox.dispatchEvent(new Event('change'));
       });
 
+      if (selectedNames.has(vol.name)) {
+        card.classList.add('selected');
+      }
+
       volunteerCardsEl.appendChild(card);
     }
   });
@@ -319,11 +404,12 @@ function renderVolunteers() {
   updateCounts();
 }
 
-function renderVolunteerDatabaseTable() {
+function renderVolunteerDatabaseTable(list = allVolunteers) {
   if (!bazaTableBody) return;
   bazaTableBody.innerHTML = '';
+  if (bazaCardsEl) bazaCardsEl.innerHTML = '';
 
-  if (!allVolunteers.length) {
+  if (!list.length) {
     const row = document.createElement('tr');
     row.className = 'empty-row';
     const cell = document.createElement('td');
@@ -331,14 +417,16 @@ function renderVolunteerDatabaseTable() {
     cell.textContent = 'Lista je prazna.';
     row.appendChild(cell);
     bazaTableBody.appendChild(row);
+    if (bazaCardsEl) {
+      const card = document.createElement('div');
+      card.className = 'vol-card empty-card';
+      card.textContent = 'Lista je prazna.';
+      bazaCardsEl.appendChild(card);
+    }
     return;
   }
 
-  const sorted = [...allVolunteers].sort((a, b) =>
-    (a.name || '').toString().localeCompare((b.name || '').toString(), 'hr', { sensitivity: 'base' })
-  );
-
-  sorted.forEach(vol => {
+  list.forEach(vol => {
     const row = document.createElement('tr');
 
     const nameCell = document.createElement('td');
@@ -381,6 +469,61 @@ function renderVolunteerDatabaseTable() {
     row.appendChild(hoursCell);
 
     bazaTableBody.appendChild(row);
+
+    if (bazaCardsEl) {
+      const card = document.createElement('article');
+      card.className = 'vol-card baza-card';
+      const title = document.createElement('div');
+      title.className = 'vol-card-title';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'vol-card-name';
+      nameEl.textContent = vol.name || 'N/A';
+      title.appendChild(nameEl);
+
+      const badgeRow = document.createElement('div');
+      badgeRow.className = 'pill-row';
+      const schoolTag = document.createElement('span');
+      schoolTag.className = 'pill-tag';
+      schoolTag.style.background = colorForSchool(vol.school || '');
+      schoolTag.textContent = vol.school || 'Škola';
+      const gradeTag = document.createElement('span');
+      gradeTag.className = 'pill-tag grade';
+      gradeTag.style.background = colorForGrade(vol.grade || '');
+      gradeTag.textContent = `Razred: ${displayGrade(vol.grade)}`;
+      const hoursBadge = document.createElement('span');
+      hoursBadge.className = 'meta-pill';
+      hoursBadge.textContent = `Sati: ${vol.hours || '0'}`;
+      badgeRow.appendChild(schoolTag);
+      badgeRow.appendChild(gradeTag);
+      badgeRow.appendChild(hoursBadge);
+
+      const meta = document.createElement('div');
+      meta.className = 'vol-card-meta';
+      const loc = parseLocations(vol);
+      const locationsText = loc.length
+        ? loc
+            .map(l => l.trim())
+            .filter(Boolean)
+            .map(l => l.charAt(0).toUpperCase())
+            .join(', ')
+        : (vol.location || '').trim()
+          ? (vol.location || '')
+              .split(',')
+              .map(l => l.trim())
+              .filter(Boolean)
+              .map(l => l.charAt(0).toUpperCase())
+              .join(', ')
+          : '-';
+      meta.innerHTML = `
+        <div class="meta-line"><strong>Lokacije:</strong> ${locationsText}</div>
+        <div class="meta-line"><strong>Kontakt:</strong> ${vol.phone || '-'}</div>
+      `;
+
+      card.appendChild(title);
+      card.appendChild(badgeRow);
+      card.appendChild(meta);
+      bazaCardsEl.appendChild(card);
+    }
   });
 }
 
@@ -447,6 +590,7 @@ function applyFilters() {
   filteredVolunteers = list;
   renderVolunteers();
   refreshSortIndicators();
+  applyBazaFilters();
 }
 
 function toggleSort() {
@@ -454,6 +598,179 @@ function toggleSort() {
   sortToggleBtn.textContent = sortDirection === 'asc' ? 'A-Z' : 'Z-A';
   refreshSortIndicators();
   applyFilters();
+}
+
+function applyBazaFilters() {
+  let list = [...allVolunteers];
+  const query = bazaSearchInput ? bazaSearchInput.value.trim().toLowerCase() : '';
+  const schoolFilter = bazaSchoolFilter ? bazaSchoolFilter.value.trim().toLowerCase() : '';
+  const gradeFilter = bazaGradeFilter ? bazaGradeFilter.value.trim().toLowerCase() : '';
+  const locationFilter = bazaLocationFilter ? bazaLocationFilter.value.trim().toLowerCase() : '';
+
+  if (query) {
+    list = list.filter(vol => {
+      const haystack = [
+        vol.name || '',
+        vol.school || '',
+        vol.grade || '',
+        Array.isArray(vol.locations) ? vol.locations.join(',') : vol.locations || '',
+        vol.location || '',
+        vol.phone || '',
+        vol.hours || ''
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }
+
+  if (schoolFilter) {
+    list = list.filter(vol => (vol.school || '').trim().toLowerCase() === schoolFilter);
+  }
+
+  if (gradeFilter) {
+    list = list.filter(vol => (vol.grade || '').toString().trim().toLowerCase() === gradeFilter);
+  }
+
+  if (locationFilter) {
+    list = list.filter(vol => {
+      const locations = parseLocations(vol).map(l => l.toLowerCase());
+      const single = (vol.location || '').trim().toLowerCase();
+      return locations.includes(locationFilter) || single === locationFilter;
+    });
+  }
+
+  list.sort((a, b) => {
+    const getValue = vol => {
+      switch (bazaSortKey) {
+        case 'school':
+          return (vol.school || '').toString();
+        case 'grade':
+          return Number.parseInt(vol.grade, 10) || 0;
+        case 'locations':
+          return parseLocations(vol).join(', ');
+        case 'phone':
+          return (vol.phone || '').toString();
+        case 'hours':
+          return Number.parseFloat(vol.hours || '0') || 0;
+        case 'name':
+        default:
+          return (vol.name || '').toString();
+      }
+    };
+    const valA = getValue(a);
+    const valB = getValue(b);
+
+    if (bazaSortKey === 'grade' || bazaSortKey === 'hours') {
+      return bazaSortDirection === 'asc' ? valA - valB : valB - valA;
+    }
+
+    const compare = (first, second) =>
+      first.toString().localeCompare(second.toString(), 'hr', { sensitivity: 'base' });
+
+    return bazaSortDirection === 'asc' ? compare(valA, valB) : compare(valB, valA);
+  });
+
+  bazaFiltered = list;
+  renderVolunteerDatabaseTable(list);
+  refreshBazaSortIndicators();
+  refreshHeroStats();
+}
+
+function refreshBazaSortIndicators() {
+  if (!bazaSortableHeaders.length) return;
+  bazaSortableHeaders.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+  const active = bazaSortableHeaders.find(h => h.getAttribute('data-baza-sort') === bazaSortKey);
+  if (active) {
+    active.classList.add(bazaSortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
+  }
+}
+
+function hydrateBazaSchoolFilter() {
+  if (!bazaSchoolFilter) return;
+  const previous = bazaSchoolFilter.value;
+  const schools = Array.from(new Set(allVolunteers.map(v => (v.school || '').trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, 'hr', { sensitivity: 'base' })
+  );
+  bazaSchoolFilter.innerHTML = '';
+  const allOpt = document.createElement('option');
+  allOpt.value = '';
+  allOpt.textContent = 'Sve škole';
+  bazaSchoolFilter.appendChild(allOpt);
+  schools.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s;
+    bazaSchoolFilter.appendChild(opt);
+  });
+  if (previous && schools.includes(previous)) {
+    bazaSchoolFilter.value = previous;
+  }
+}
+
+function hydrateBazaGradeFilter() {
+  if (!bazaGradeFilter) return;
+  const previous = bazaGradeFilter.value;
+  const grades = Array.from(new Set(allVolunteers.map(v => (v.grade || '').toString().trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, 'hr', { sensitivity: 'base' })
+  );
+  bazaGradeFilter.innerHTML = '';
+  const allOpt = document.createElement('option');
+  allOpt.value = '';
+  allOpt.textContent = 'Svi razredi';
+  bazaGradeFilter.appendChild(allOpt);
+  grades.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g;
+    opt.textContent = displayGrade(g);
+    bazaGradeFilter.appendChild(opt);
+  });
+  if (previous && grades.includes(previous)) {
+    bazaGradeFilter.value = previous;
+  }
+}
+
+function hydrateBazaLocationFilter() {
+  if (!bazaLocationFilter) return;
+  const previous = bazaLocationFilter.value;
+  const locs = new Map(); // key: lowercase, value: display form
+  allVolunteers.forEach(v => {
+    const parsed = parseLocations(v);
+    if (parsed.length) {
+      parsed.forEach(loc => {
+        const key = loc.trim().toLowerCase();
+        if (key && !locs.has(key)) locs.set(key, loc.trim());
+      });
+    }
+    if (v.location) {
+      String(v.location)
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .forEach(loc => {
+          const key = loc.toLowerCase();
+          if (!locs.has(key)) locs.set(key, loc);
+        });
+    }
+  });
+
+  const locations = Array.from(locs.values()).sort((a, b) =>
+    a.localeCompare(b, 'hr', { sensitivity: 'base' })
+  );
+  bazaLocationFilter.innerHTML = '';
+  const allOpt = document.createElement('option');
+  allOpt.value = '';
+  allOpt.textContent = 'Sve lokacije';
+  bazaLocationFilter.appendChild(allOpt);
+  locations.forEach(loc => {
+    const opt = document.createElement('option');
+    opt.value = loc.toUpperCase();
+    opt.textContent = loc.toUpperCase();
+    bazaLocationFilter.appendChild(opt);
+  });
+  if (previous && locations.includes(previous)) {
+    bazaLocationFilter.value = previous.toUpperCase();
+  }
 }
 
 function selectAllVisible() {
@@ -466,6 +783,12 @@ function selectAllVisible() {
     filteredVolunteers.forEach(vol => selectedNames.add(vol.name));
   }
 
+  renderVolunteers();
+}
+
+function deselectAllSelected() {
+  if (!selectedNames.size) return;
+  selectedNames.clear();
   renderVolunteers();
 }
 
@@ -543,8 +866,12 @@ async function loadVolunteers() {
 
     allVolunteers = volunteers;
     filteredVolunteers = [...allVolunteers];
+    bazaFiltered = [...allVolunteers];
     renderVolunteers();
-    renderVolunteerDatabaseTable();
+    hydrateBazaSchoolFilter();
+    hydrateBazaGradeFilter();
+    hydrateBazaLocationFilter();
+    applyBazaFilters();
     refreshSortIndicators();
     statusEl.textContent = '';
     setStatusChip('Spremno', 'success');
@@ -639,6 +966,9 @@ function wireEvents() {
   sortToggleBtn.addEventListener('click', toggleSort);
 
   selectAllBtn.addEventListener('click', selectAllVisible);
+  if (deselectAllBtn) {
+    deselectAllBtn.addEventListener('click', deselectAllSelected);
+  }
 
   searchInput.addEventListener('input', () => {
     applyFilters();
@@ -648,6 +978,25 @@ function wireEvents() {
     searchInput.value = '';
     applyFilters();
   });
+
+  if (bazaSearchInput) {
+    bazaSearchInput.addEventListener('input', applyBazaFilters);
+  }
+  if (bazaClearSearchBtn) {
+    bazaClearSearchBtn.addEventListener('click', () => {
+      bazaSearchInput.value = '';
+      applyBazaFilters();
+    });
+  }
+  if (bazaSchoolFilter) {
+    bazaSchoolFilter.addEventListener('change', applyBazaFilters);
+  }
+  if (bazaGradeFilter) {
+    bazaGradeFilter.addEventListener('change', applyBazaFilters);
+  }
+  if (bazaLocationFilter) {
+    bazaLocationFilter.addEventListener('change', applyBazaFilters);
+  }
 
   if (locationSelect) {
     locationSelect.addEventListener('change', () => {
@@ -706,10 +1055,42 @@ function wireEvents() {
         eventSortDirection = key === 'date' ? 'desc' : 'asc';
       }
       refreshEventSortIndicators();
-      renderEventsList();
+      applyEventsFilters();
     });
   });
   refreshEventSortIndicators();
+
+  bazaSortableHeaders = Array.from(document.querySelectorAll('[data-baza-sort]'));
+  bazaSortableHeaders.forEach(header => {
+    header.addEventListener('click', () => {
+      const key = header.getAttribute('data-baza-sort');
+      if (bazaSortKey === key) {
+        bazaSortDirection = bazaSortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        bazaSortKey = key;
+        bazaSortDirection = 'asc';
+      }
+      refreshBazaSortIndicators();
+      applyBazaFilters();
+    });
+  });
+  refreshBazaSortIndicators();
+
+  if (eventsSearchInput) {
+    eventsSearchInput.addEventListener('input', applyEventsFilters);
+  }
+  if (eventsClearSearchBtn) {
+    eventsClearSearchBtn.addEventListener('click', () => {
+      eventsSearchInput.value = '';
+      applyEventsFilters();
+    });
+  }
+  if (eventsLocationFilter) {
+    eventsLocationFilter.addEventListener('change', applyEventsFilters);
+  }
+  if (eventsYearFilter) {
+    eventsYearFilter.addEventListener('change', applyEventsFilters);
+  }
 
   formEl.addEventListener('reset', () => {
     selectedNames.clear();
@@ -766,23 +1147,40 @@ function refreshEventSortIndicators() {
   }
 }
 
-function renderEventsList() {
-  if (!eventsTableBody) return;
-  eventsTableBody.innerHTML = '';
+function applyEventsFilters() {
+  let list = [...existingAttendance];
+  const query = eventsSearchInput ? eventsSearchInput.value.trim().toLowerCase() : '';
+  const locFilter = eventsLocationFilter ? eventsLocationFilter.value.trim().toLowerCase() : '';
+  const yearFilter = eventsYearFilter ? eventsYearFilter.value.trim() : '';
 
-  if (!existingAttendance.length) {
-    const row = document.createElement('tr');
-    row.className = 'empty-row';
-    const cell = document.createElement('td');
-    cell.colSpan = 5;
-    cell.textContent = 'Evidencija je prazna ili se ucitava.';
-    row.appendChild(cell);
-    eventsTableBody.appendChild(row);
-    return;
+  if (query) {
+    list = list.filter(entry => {
+      const haystack = [
+        entry.date || '',
+        entry.location || '',
+        entry.volunteers || '',
+        entry.childrenCount || '',
+        entry.volunteerCount || ''
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
   }
 
-  const sorted = [...existingAttendance];
-  sorted.sort((a, b) => {
+  if (locFilter) {
+    list = list.filter(entry => (entry.location || '').trim().toLowerCase() === locFilter);
+  }
+
+  if (yearFilter) {
+    list = list.filter(entry => {
+      const iso = normalizeDate(entry.date);
+      if (!iso) return false;
+      return iso.split('-')[0] === yearFilter;
+    });
+  }
+
+  list.sort((a, b) => {
     const getValue = entry => {
       switch (eventSortKey) {
         case 'location':
@@ -814,7 +1212,92 @@ function renderEventsList() {
     return eventSortDirection === 'asc' ? compare(valA, valB) : compare(valB, valA);
   });
 
-  sorted.forEach(entry => {
+  eventsFiltered = list;
+  renderEventsList(list);
+  refreshHeroStats();
+}
+
+function hydrateEventsLocationFilter() {
+  if (!eventsLocationFilter) return;
+  const previous = eventsLocationFilter.value;
+  const locs = Array.from(
+    new Set(
+      existingAttendance
+        .map(e => (e.location || '').trim())
+        .filter(Boolean)
+        .map(l => l.toLowerCase())
+    )
+  )
+    .map(l => l.toUpperCase())
+    .sort((a, b) => a.localeCompare(b, 'hr', { sensitivity: 'base' }));
+
+  eventsLocationFilter.innerHTML = '';
+  const allOpt = document.createElement('option');
+  allOpt.value = '';
+  allOpt.textContent = 'Sve lokacije';
+  eventsLocationFilter.appendChild(allOpt);
+  locs.forEach(loc => {
+    const opt = document.createElement('option');
+    opt.value = loc;
+    opt.textContent = loc;
+    eventsLocationFilter.appendChild(opt);
+  });
+  if (previous && locs.includes(previous.toUpperCase())) {
+    eventsLocationFilter.value = previous.toUpperCase();
+  }
+}
+
+function hydrateEventsYearFilter() {
+  if (!eventsYearFilter) return;
+  const previous = eventsYearFilter.value;
+  const years = Array.from(
+    new Set(
+      existingAttendance
+        .map(e => normalizeDate(e.date))
+        .filter(Boolean)
+        .map(d => d.split('-')[0])
+    )
+  ).sort();
+
+  eventsYearFilter.innerHTML = '';
+  const allOpt = document.createElement('option');
+  allOpt.value = '';
+  allOpt.textContent = 'Sve godine';
+  eventsYearFilter.appendChild(allOpt);
+  years.forEach(y => {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    eventsYearFilter.appendChild(opt);
+  });
+  if (previous && years.includes(previous)) {
+    eventsYearFilter.value = previous;
+  }
+}
+
+function renderEventsList(list = eventsFiltered) {
+  if (!eventsTableBody) return;
+  eventsTableBody.innerHTML = '';
+  if (eventsCardsEl) eventsCardsEl.innerHTML = '';
+
+  if (!list.length) {
+    const row = document.createElement('tr');
+    row.className = 'empty-row';
+    const cell = document.createElement('td');
+    cell.colSpan = 5;
+    cell.textContent = 'Evidencija je prazna ili se ucitava.';
+    row.appendChild(cell);
+    eventsTableBody.appendChild(row);
+    if (eventsCardsEl) {
+      const card = document.createElement('div');
+      card.className = 'vol-card empty-card';
+      card.textContent = 'Evidencija je prazna.';
+      eventsCardsEl.appendChild(card);
+    }
+    return;
+  }
+
+  list.forEach(entry => {
     const row = document.createElement('tr');
 
     const iso = normalizeDate(entry.date);
@@ -826,17 +1309,22 @@ function renderEventsList() {
     row.appendChild(dateCell);
 
     const locCell = document.createElement('td');
-    locCell.className = 'col-location';
-    locCell.textContent = entry.location || '—';
+    locCell.className = 'col-location center';
+    const locPill = document.createElement('span');
+    locPill.className = 'pill-tag';
+    locPill.textContent = entry.location || '—';
+    locPill.style.background = colorForLocationName(entry.location || '');
+    locPill.style.borderColor = 'rgba(0,0,0,0.05)';
+    locCell.appendChild(locPill);
     row.appendChild(locCell);
 
     const childCell = document.createElement('td');
-    childCell.className = 'center';
+    childCell.className = 'center col-number';
     childCell.textContent = entry.childrenCount || '0';
     row.appendChild(childCell);
 
     const volCountCell = document.createElement('td');
-    volCountCell.className = 'center';
+    volCountCell.className = 'center col-number';
     volCountCell.textContent = entry.volunteerCount || '0';
     row.appendChild(volCountCell);
 
@@ -846,6 +1334,35 @@ function renderEventsList() {
     row.appendChild(volunteersCell);
 
     eventsTableBody.appendChild(row);
+
+    if (eventsCardsEl) {
+      const card = document.createElement('article');
+      card.className = 'vol-card event-card';
+      const header = document.createElement('div');
+      header.className = 'vol-card-title';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'vol-card-name';
+      nameEl.textContent = displayDate || 'Datum';
+      const locPillCard = document.createElement('span');
+      locPillCard.className = 'pill-tag';
+      locPillCard.textContent = entry.location || 'Lokacija';
+      locPillCard.style.background = colorForLocationName(entry.location || '');
+      locPillCard.style.borderColor = 'rgba(0,0,0,0.05)';
+      header.appendChild(locPillCard);
+      header.appendChild(nameEl);
+
+      const meta = document.createElement('div');
+      meta.className = 'vol-card-meta';
+      meta.innerHTML = `
+        <div class="meta-line"><strong>Djeca:</strong> ${entry.childrenCount || '0'}</div>
+        <div class="meta-line"><strong>Volonteri:</strong> ${entry.volunteerCount || '0'}</div>
+        <div class="meta-line"><strong>Popis:</strong> ${entry.volunteers || '-'}</div>
+      `;
+
+      card.appendChild(header);
+      card.appendChild(meta);
+      eventsCardsEl.appendChild(card);
+    }
   });
 
   refreshEventSortIndicators();
@@ -870,11 +1387,16 @@ async function loadExistingAttendance() {
     }
     if (!success) throw lastError || new Error('Nije pronadjen dostupni backend');
     existingAttendance = data;
+    eventsFiltered = [...existingAttendance];
   } catch (err) {
     console.error('Failed to load evidencija', err);
     existingAttendance = [];
+    eventsFiltered = [];
   } finally {
-    renderEventsList();
+    hydrateEventsLocationFilter();
+    hydrateEventsYearFilter();
+    applyEventsFilters();
+    refreshHeroStats();
   }
 }
 
@@ -956,14 +1478,33 @@ function setDateInputDisplay(isoDate) {
 
 function colorForSchool(school) {
   const palette = [
-    '#ede9fe', // purple soft
-    '#e0f2fe', // blue soft
-    '#fef3c7', // amber soft (gold accent)
-    '#dcfce7', // green soft
-    '#ffe4e6'  // rose soft
+    '#bfdbfe', // blue
+    '#bbf7d0', // green
+    '#fecdd3', // red
+    '#ddd6fe', // purple
+    '#fef3c7', // yellow
+    '#e2e8f0', // grey
+    '#fce7f3', // pink
+    '#fed7aa', // orange
+    '#c4b5fd', // violet
+    '#bfe9ff', // cyan
+    '#4b5563'  // dark
   ];
-  if (!school) return palette[0];
-  const hash = Array.from(school).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+
+  const SCHOOL_COLOR_MAP = {
+    'gimnazija antun gustav matoš samobor': '#fecdd3', // red
+    'gimnazija lucijana vranjanina': '#bbf7d0', // green
+    'klasična gimnazija': '#fef3c7', // yellow
+    'prirodoslovna škola vladimir prelog': '#bfe9ff', // cyan
+    'privatna umjetnička gimnazija': '#bfdbfe', // blue
+    'xv. gimnazija (mioc)': '#93c5fd' // blue
+  };
+
+  const key = (school || '').trim().toLowerCase();
+  if (key && SCHOOL_COLOR_MAP[key]) return SCHOOL_COLOR_MAP[key];
+
+  // Fallback deterministic color
+  const hash = Array.from(key).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
   return palette[hash % palette.length];
 }
 
@@ -983,4 +1524,33 @@ function displayGrade(raw) {
   const g = String(raw).trim();
   if (g.toLowerCase().includes('fakultet')) return 'f';
   return g;
+}
+
+function colorForLocationName(name) {
+  const palette = [
+    '#bfdbfe', // blue
+    '#fef3c7', // yellow
+    '#ddd6fe', // purple
+    '#bbf7d0', // green
+    '#fecdd3', // red
+    '#e2e8f0',
+    '#fce7f3',
+    '#fed7aa',
+    '#c4b5fd',
+    '#bfe9ff'
+  ];
+
+  const LOCATION_COLOR_MAP = {
+    'mioc': '#bfdbfe',
+    'kralj tomislav': '#fef3c7',
+    'samobor': '#ddd6fe',
+    'trešnjevka': '#bbf7d0',
+    'špansko': '#fecdd3'
+  };
+
+  const key = (name || '').trim().toLowerCase();
+  if (key && LOCATION_COLOR_MAP[key]) return LOCATION_COLOR_MAP[key];
+
+  const hash = Array.from(key).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  return palette[hash % palette.length];
 }

@@ -17,16 +17,16 @@
         <div>
           <p class="eyebrow">Evidencija volontera</p>
           <h1>ZLATNI ZMAJ</h1>
-          <p class="lede">Unošenje termina volontiranja u evidenciju.</p>
+          <p class="lede">Pregled baze, evidencije i unošenje termina.</p>
         </div>
       </div>
       <div class="hero-stats">
         <div class="stat">
-          <span class="stat-label">Na listi</span>
+          <span class="stat-label" id="stat-total-label">Na listi</span>
           <strong id="stat-total">-</strong>
         </div>
         <div class="stat">
-          <span class="stat-label">OZNAČENO</span>
+          <span class="stat-label" id="stat-selected-label">OZNAČENO</span>
           <strong id="stat-selected">0</strong>
         </div>
       </div>
@@ -38,44 +38,172 @@
       <div class="tab-list" role="tablist" aria-label="Navigacija kartica">
         <button
           class="tab-btn active"
-          id="tab-entry-btn"
-          data-tab-target="tab-entry"
+          id="tab-baza-btn"
+          data-tab-target="tab-baza"
           role="tab"
-          aria-controls="tab-entry"
+          aria-controls="tab-baza"
           aria-selected="true"
         >
-          Evidencija unosa
-          <span class="tab-meta">Unos termina i označavanje volontera</span>
+          BAZA VOLONTERA
         </button>
         <button
           class="tab-btn"
-          id="tab-database-btn"
-          data-tab-target="tab-database"
+          id="tab-termini-btn"
+          data-tab-target="tab-termini"
           role="tab"
-          aria-controls="tab-database"
+          aria-controls="tab-termini"
           aria-selected="false"
         >
-          Baza volontera
-          <span class="tab-meta">Pregled lista iz BAZA tablice</span>
+          TERMINI
         </button>
         <button
           class="tab-btn"
-          id="tab-events-btn"
-          data-tab-target="tab-events"
+          id="tab-unos-btn"
+          data-tab-target="tab-unos"
           role="tab"
-          aria-controls="tab-events"
+          aria-controls="tab-unos"
           aria-selected="false"
         >
-          Popis događaja
-          <span class="tab-meta">Sve evidentirane termine</span>
+          UNOS U EVIDENCIJU
         </button>
       </div>
 
       <section
-        id="tab-entry"
+        id="tab-baza"
         class="tab-panel active"
         role="tabpanel"
-        aria-labelledby="tab-entry-btn"
+        aria-labelledby="tab-baza-btn"
+      >
+        <div class="layout">
+          <section class="panel panel-wide stretch-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Baza volontera</h2>
+                <p class="muted">Tablica svih volontera.</p>
+              </div>
+              <div class="panel-chips">
+                <span class="pill pill-muted uppercase">Samo za čitanje</span>
+              </div>
+            </div>
+            <div class="filters filters-column">
+              <div class="filter-row">
+                <div class="filter-group">
+                  <label class="filter-label" for="baza-grade-filter">Razred</label>
+                  <select id="baza-grade-filter" class="filter-select">
+                    <option value="">Svi razredi</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <label class="filter-label" for="baza-school-filter">Škola</label>
+                  <select id="baza-school-filter" class="filter-select">
+                    <option value="">Sve škole</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <label class="filter-label" for="baza-location-filter">Lokacija</label>
+                  <select id="baza-location-filter" class="filter-select">
+                    <option value="">Sve lokacije</option>
+                  </select>
+                </div>
+              </div>
+              <div class="search-group">
+                <input type="search" id="baza-search" placeholder="Traži volontera..." />
+                <button type="button" id="baza-clear-search" class="ghost-btn ghost-btn-small">Očisti</button>
+              </div>
+            </div>
+            <div class="table-wrapper tall-table">
+              <table class="roster-table compact" id="baza-table">
+                <thead>
+                  <tr>
+                    <th class="sortable col-name" data-baza-sort="name">IME I PREZIME</th>
+                    <th class="sortable col-school" data-baza-sort="school">ŠKOLA</th>
+                    <th class="sortable center col-grade" data-baza-sort="grade">RAZRED</th>
+                    <th class="sortable col-locations" data-baza-sort="locations">LOKACIJE</th>
+                    <th class="sortable col-phone" data-baza-sort="phone">KONTAKT</th>
+                    <th class="sortable center col-hours" data-baza-sort="hours">SATI</th>
+                  </tr>
+                </thead>
+                <tbody id="baza-table-body">
+                  <tr class="empty-row">
+                    <td colspan="6">Lista se učitava...</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div id="baza-cards" class="volunteer-cards baza-cards">
+                <!-- mobile cards for baza -->
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section
+        id="tab-termini"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-termini-btn"
+      >
+        <div class="layout">
+          <section class="panel panel-wide stretch-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Evidencija termina</h2>
+                <p class="muted">Pregled svih upisanih termina.</p>
+              </div>
+              <div class="panel-chips">
+                <span class="pill pill-muted uppercase">SAMO ZA ČITANJE</span>
+              </div>
+            </div>
+            <div class="filters filters-column">
+              <div class="filter-row">
+                <div class="filter-group">
+                  <label class="filter-label" for="events-location-filter">Lokacija</label>
+                  <select id="events-location-filter" class="filter-select">
+                    <option value="">Sve lokacije</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <label class="filter-label" for="events-year-filter">Godina</label>
+                  <select id="events-year-filter" class="filter-select">
+                    <option value="">Sve godine</option>
+                  </select>
+                </div>
+              </div>
+              <div class="search-group">
+                <input type="search" id="events-search" placeholder="Traži po lokaciji, datumu ili volonterima..." />
+                <button type="button" id="events-clear-search" class="ghost-btn ghost-btn-small">Očisti</button>
+              </div>
+            </div>
+            <div class="table-wrapper tall-table">
+              <table class="roster-table compact" id="events-table">
+                <thead>
+                  <tr>
+                    <th class="sortable col-date" data-events-sort="date">DATUM</th>
+                    <th class="sortable col-location center" data-events-sort="location">LOKACIJA</th>
+                    <th class="sortable center col-number" data-events-sort="childrenCount">BROJ DJECE</th>
+                    <th class="sortable center col-number" data-events-sort="volunteerCount">BROJ VOLONTERA</th>
+                    <th class="sortable col-volunteers" data-events-sort="volunteers">VOLONTERI</th>
+                  </tr>
+                </thead>
+                <tbody id="events-table-body">
+                  <tr class="empty-row">
+                    <td colspan="5">Evidencija se učitava...</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div id="events-cards" class="volunteer-cards events-cards">
+                <!-- mobile event cards -->
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section
+        id="tab-unos"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-unos-btn"
       >
         <form id="attendance-form" class="layout">
           <section class="panel">
@@ -146,6 +274,7 @@
               <div class="actions aligned-actions">
                 <button type="button" id="sort-toggle" class="ghost-btn">A-Z</button>
                 <button type="button" id="select-all-btn" class="ghost-btn">Označi sve vidljive</button>
+                <button type="button" id="deselect-all-btn" class="ghost-btn">Poništi odabrano</button>
               </div>
             </div>
 
@@ -173,7 +302,7 @@
                 </thead>
                 <tbody id="volunteer-table-body">
                   <tr class="empty-row">
-                    <td colspan="6">Lista se ucitava...</td>
+                    <td colspan="6">Lista se učitava...</td>
                   </tr>
                 </tbody>
               </table>
@@ -189,91 +318,12 @@
                 Spremi evidenciju
               </button>
               <button type="reset" class="ghost-btn" id="reset-btn">
-                Očisti formu
+                Očisti unos
               </button>
             </div>
             <p id="status" class="status"></p>
           </section>
         </form>
-      </section>
-
-      <section
-        id="tab-database"
-        class="tab-panel"
-        role="tabpanel"
-        aria-labelledby="tab-database-btn"
-      >
-        <div class="layout">
-          <section class="panel panel-wide">
-            <div class="panel-header">
-              <div>
-                <h2>Baza volontera</h2>
-                <p class="muted">Podaci se učitavaju iz Google Sheeta "BAZA".</p>
-              </div>
-              <div class="panel-chips">
-                <span class="pill pill-muted uppercase">Samo za čitanje</span>
-              </div>
-            </div>
-            <div class="table-wrapper tall-table">
-              <table class="roster-table compact" id="baza-table">
-                <thead>
-                  <tr>
-                    <th class="col-name">IME I PREZIME</th>
-                    <th class="col-school">ŠKOLA</th>
-                    <th class="center col-grade">RAZRED</th>
-                    <th class="col-locations">LOKACIJE</th>
-                    <th class="col-phone">KONTAKT</th>
-                    <th class="center col-hours">SATI</th>
-                  </tr>
-                </thead>
-                <tbody id="baza-table-body">
-                  <tr class="empty-row">
-                    <td colspan="6">Lista se ucitava...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section
-        id="tab-events"
-        class="tab-panel"
-        role="tabpanel"
-        aria-labelledby="tab-events-btn"
-      >
-        <div class="layout">
-          <section class="panel panel-wide">
-            <div class="panel-header">
-              <div>
-                <h2>Popis događaja</h2>
-                <p class="muted">Pregled svih zapisa iz tablice "Evidencija".</p>
-              </div>
-              <div class="panel-chips">
-                <span class="pill pill-muted">Klik na zaglavlja za sortiranje</span>
-              </div>
-            </div>
-            <div class="table-wrapper tall-table">
-              <table class="roster-table compact" id="events-table">
-                <thead>
-                  <tr>
-                    <th class="sortable col-date" data-events-sort="date">DATUM</th>
-                    <th class="sortable col-location" data-events-sort="location">LOKACIJA</th>
-                    <th class="sortable center" data-events-sort="childrenCount">BROJ DJECE</th>
-                    <th class="sortable center" data-events-sort="volunteerCount">BROJ VOLONTERA</th>
-                    <th class="sortable col-volunteers" data-events-sort="volunteers">VOLONTERI</th>
-                  </tr>
-                </thead>
-                <tbody id="events-table-body">
-                  <tr class="empty-row">
-                    <td colspan="5">Evidencija se ucitava...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
       </section>
     </div>
   </main>
