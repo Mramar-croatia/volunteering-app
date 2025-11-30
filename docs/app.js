@@ -154,9 +154,9 @@ function renderVolunteers() {
 
     const locationsCell = document.createElement('td');
     locationsCell.className = 'volunteer-meta col-locations';
-    const locations = parseLocations(vol);
-    const locText = locations.length
-      ? locations
+    const locationsList = parseLocations(vol);
+    const locText = locationsList.length
+      ? locationsList
           .map(loc => loc.trim())
           .filter(Boolean)
           .map(loc => loc.charAt(0).toUpperCase())
@@ -201,20 +201,31 @@ function renderVolunteers() {
 
     // Mobile card
     if (volunteerCardsEl) {
-      const card = document.createElement('div');
+      const card = document.createElement('article');
       card.className = 'vol-card';
 
-      const header = document.createElement('div');
-      header.className = 'vol-card-header';
+      const top = document.createElement('div');
+      top.className = 'vol-card-top';
+
+      const title = document.createElement('div');
+      title.className = 'vol-card-title';
       const nameEl = document.createElement('div');
       nameEl.className = 'vol-card-name';
       nameEl.textContent = vol.name;
-      const gradeEl = document.createElement('div');
-      gradeEl.className = 'pill-tag grade';
-      gradeEl.style.background = colorForGrade(vol.grade || '');
-      gradeEl.textContent = displayGrade(vol.grade);
-      header.appendChild(nameEl);
-      header.appendChild(gradeEl);
+      title.appendChild(nameEl);
+
+      top.appendChild(title);
+
+      const statsRow = document.createElement('div');
+      statsRow.className = 'vol-card-stats';
+      const gradeEl = document.createElement('span');
+      gradeEl.className = 'stat-chip stat-chip-grade';
+      gradeEl.innerHTML = `<span class="stat-label">RAZRED</span><strong>${displayGrade(vol.grade)}</strong>`;
+      const hoursEl = document.createElement('span');
+      hoursEl.className = 'stat-chip stat-chip-hours';
+      hoursEl.innerHTML = `<span class="stat-label">SATI</span><strong>${vol.hours || '0'}</strong>`;
+      statsRow.appendChild(gradeEl);
+      statsRow.appendChild(hoursEl);
 
       const meta = document.createElement('div');
       meta.className = 'vol-card-meta';
@@ -222,30 +233,30 @@ function renderVolunteers() {
       schoolEl.className = 'pill-tag';
       schoolEl.style.background = colorForSchool(vol.school || '');
       schoolEl.textContent = vol.school || 'N/A';
-      const hoursEl = document.createElement('span');
-      hoursEl.className = 'pill-tag soft';
-      hoursEl.textContent = `${vol.hours || '0'} h`;
       meta.appendChild(schoolEl);
-      meta.appendChild(hoursEl);
-
-      const locationsEl = document.createElement('div');
-      locationsEl.className = 'vol-card-locs';
-      const locations = parseLocations(vol);
-      const locText = locations.length
-        ? locations
-            .map(loc => loc.trim())
-            .filter(Boolean)
-            .map(loc => loc.charAt(0).toUpperCase())
-            .join(', ')
-        : 'N/A';
-      locationsEl.textContent = locText;
 
       const checkboxWrap = document.createElement('label');
-      checkboxWrap.className = 'vol-card-check';
+      checkboxWrap.className = 'vol-card-presence';
+      checkboxWrap.setAttribute('aria-label', `Oznaci ${vol.name} kao prisutnog`);
+      const srOnly = document.createElement('span');
+      srOnly.className = 'visually-hidden';
+      srOnly.textContent = 'Prisutan';
+
+      const switchWrap = document.createElement('div');
+      switchWrap.className = 'switch';
       const mobileCheckbox = document.createElement('input');
       mobileCheckbox.type = 'checkbox';
       mobileCheckbox.value = vol.name;
       mobileCheckbox.checked = selectedNames.has(vol.name);
+      mobileCheckbox.className = 'present-checkbox';
+      const slider = document.createElement('span');
+      slider.className = 'switch-slider';
+      switchWrap.appendChild(mobileCheckbox);
+      switchWrap.appendChild(slider);
+
+      checkboxWrap.appendChild(srOnly);
+      checkboxWrap.appendChild(switchWrap);
+
       mobileCheckbox.addEventListener('change', ev => {
         if (ev.target.checked) {
           selectedNames.add(vol.name);
@@ -257,18 +268,19 @@ function renderVolunteers() {
         if (desktopCb) desktopCb.checked = ev.target.checked;
         updateCounts();
       });
-      checkboxWrap.appendChild(mobileCheckbox);
-      checkboxWrap.appendChild(document.createTextNode(' Prisutan'));
 
-      card.appendChild(header);
+      switchWrap.addEventListener('click', ev => ev.stopPropagation());
+
+      card.appendChild(top);
+      card.appendChild(statsRow);
       card.appendChild(meta);
-      card.appendChild(locationsEl);
       card.appendChild(checkboxWrap);
       card.addEventListener('click', ev => {
-        if (ev.target.tagName.toLowerCase() !== 'input') {
-          mobileCheckbox.checked = !mobileCheckbox.checked;
-          mobileCheckbox.dispatchEvent(new Event('change'));
+        if (ev.target.tagName.toLowerCase() === 'input' || ev.target.closest('.switch')) {
+          return;
         }
+        mobileCheckbox.checked = !mobileCheckbox.checked;
+        mobileCheckbox.dispatchEvent(new Event('change'));
       });
 
       volunteerCardsEl.appendChild(card);
@@ -599,6 +611,10 @@ function wireEvents() {
       statusEl.textContent = '';
       setStatusChip('Spremno', 'info');
       updateExistingIndicator();
+      if (volunteerCardsEl) {
+        // Uncheck all mobile cards
+        volunteerCardsEl.querySelectorAll('input[type="checkbox"]').forEach(cb => (cb.checked = false));
+      }
     });
   }
 }
