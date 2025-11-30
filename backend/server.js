@@ -1,4 +1,6 @@
 // backend/server.js
+// Express API that proxies volunteer data to Google Sheets.
+
 const express = require('express');
 const cors = require('cors');
 const { google } = require('googleapis');
@@ -6,19 +8,20 @@ const { google } = require('googleapis');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// We'll set this in environment variables later (Render)
-// For local testing you can temporarily hard-code your ID here.
+// Environment-driven configuration
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const ROSTER_RANGE = 'BAZA!A2:I';
+const ATTENDANCE_SHEET = 'Evidencija';
+const ATTENDANCE_RANGE = `${ATTENDANCE_SHEET}!A:E`;
+const ATTENDANCE_HEADER_RANGE = `${ATTENDANCE_SHEET}!A1:E1`;
+const ATTENDANCE_HEADERS = ['DATUM', 'LOKACIJA', 'BROJ DJECE', 'BROJ VOLONTERA', 'VOLONTERI'];
 
 if (!SPREADSHEET_ID) {
   console.warn('Warning: SPREADSHEET_ID is not set. API calls will fail until it is provided.');
 }
 
-// Allow frontend from another domain (Netlify) to call this API
-app.use(cors());
-
-// Parse JSON request bodies
-app.use(express.json());
+app.use(cors()); // allow frontend calls from another domain
+app.use(express.json()); // parse JSON request bodies
 
 function getAuth() {
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
@@ -31,18 +34,6 @@ function getAuth() {
 
   const privateKey = rawKey.replace(/\\n/g, '\n');
 
-  /** 
-   * Korsititi u slučaju da je potrebno
-
-  console.log('✅ GOOGLE_CLIENT_EMAIL present:', !!clientEmail);
-  console.log('✅ GOOGLE_PRIVATE_KEY length:', privateKey.length);
-  console.log('✅ SPREADSHEET_ID present:', !!SPREADSHEET_ID);
-
-  // Extra sanity check – should print: "-----BEGIN PRIVATE KEY-----"
-  console.log('✅ GOOGLE_PRIVATE_KEY starts with:', privateKey.split('\n')[0]);
-
-  */
-
   return new google.auth.JWT({
     email: clientEmail,
     key: privateKey,
@@ -52,7 +43,7 @@ function getAuth() {
 
 async function getSheetsClient() {
   const auth = getAuth();
-  await auth.authorize(); // forces it to actually use the key
+  await auth.authorize(); // ensures the key is used immediately
   return google.sheets({ version: 'v4', auth });
 }
 
@@ -64,6 +55,71 @@ function assertSpreadsheetId(res) {
   return true;
 }
 
+async function ensureAttendanceSheet(sheetsClient) {
+  const spreadsheet = await sheetsClient.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID
+  });
+
+  const sheetExists = (spreadsheet.data.sheets || []).some(
+    s => s.properties && s.properties.title === ATTENDANCE_SHEET
+  );
+
+  if (sheetExists) return;
+
+  await sheetsClient.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [{ addSheet: { properties: { title: ATTENDANCE_SHEET } } }]
+    }
+  });
+
+  await sheetsClient.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: ATTENDANCE_HEADER_RANGE,
+    valueInputOption: 'RAW',
+    requestBody: { values: [ATTENDANCE_HEADERS] }
+  });
+}
+
+function formatDateToISO(input) {
+  if (!input) return '';
+  const trimmed = input.toString().trim().replace(/\./g, '/').replace(/\s+/g, '');
+  const cleaned = trimmed.replace(/\/+$/, '');
+  if (cleaned.includes('-')) return cleaned;
+  const parts = cleaned.split('/').filter(Boolean);
+  if (parts.length === 3) {
+    const [dd, mm, yyyy] = parts.map(p => p.padStart(2, '0'));
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return '';
+}
+
+function formatDateToDDMMYYYY(isoDate) {
+  if (!isoDate) return '';
+  const [year, month, day] = isoDate.split('-');
+  return `${day}/${month}/${year}`;
+}
+
+function validateAttendancePayload(data) {
+  if (!data) return { ok: false, message: 'Missing request body' };
+
+  const isoDate = formatDateToISO(data.selectedDate || data.date || '');
+  if (!isoDate) return { ok: false, message: 'selectedDate is required (yyyy-mm-dd or dd/mm/yyyy)' };
+
+  const location = (data.location || '').trim();
+  if (!location) return { ok: false, message: 'location is required' };
+
+  return {
+    ok: true,
+    payload: {
+      date: formatDateToDDMMYYYY(isoDate),
+      location,
+      childrenCount: data.childrenCount || '',
+      volunteerCount: data.volunteerCount || '',
+      selectedNames: Array.isArray(data.selected) ? data.selected.join(', ') : ''
+    }
+  };
+}
 
 /**
  * GET /api/names
@@ -77,7 +133,7 @@ app.get('/api/names', async (req, res) => {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'BAZA!A2:I' // Name, School, Grade, Location, Phone, Hours (col I)
+      range: ROSTER_RANGE // Name, School, Grade, Location, Phone, Hours (col I)
     });
 
     const rows = response.data.values || [];
@@ -101,17 +157,8 @@ app.get('/api/names', async (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-  res.json({ status: "ok" });
+  res.json({ status: 'ok' });
 });
-
-/**
- * Helper: convert yyyy-mm-dd to dd/mm/yyyy
- */
-function formatDateToDDMMYYYY(isoDate) {
-  if (!isoDate) return '';
-  const [year, month, day] = isoDate.split('-');
-  return `${day}/${month}/${year}`;
-}
 
 /**
  * POST /api/attendance
@@ -127,65 +174,21 @@ function formatDateToDDMMYYYY(isoDate) {
 app.post('/api/attendance', async (req, res) => {
   if (!assertSpreadsheetId(res)) return;
   try {
-    const data = req.body;
+    const validation = validateAttendancePayload(req.body);
+    if (!validation.ok) {
+      return res.status(400).json({ error: validation.message });
+    }
+    const data = validation.payload;
     const sheets = await getSheetsClient();
 
-    const date = formatDateToDDMMYYYY(data.selectedDate);
-    const location = data.location || '';
-    const childrenCount = data.childrenCount || '';
-    const volunteerCount = data.volunteerCount || '';
-    const selectedNames = Array.isArray(data.selected)
-      ? data.selected.join(', ')
-      : '';
+    await ensureAttendanceSheet(sheets);
 
-    // --- Ensure "Evidencija" sheet exists, create if needed ---
-    const spreadsheet = await sheets.spreadsheets.get({
-      spreadsheetId: SPREADSHEET_ID
-    });
-
-    const sheetExists = (spreadsheet.data.sheets || []).some(
-      s => s.properties && s.properties.title === 'Evidencija'
-    );
-
-    if (!sheetExists) {
-      // Create "Evidencija" sheet
-      await sheets.spreadsheets.batchUpdate({
-        spreadsheetId: SPREADSHEET_ID,
-        requestBody: {
-          requests: [
-            {
-              addSheet: {
-                properties: {
-                  title: 'Evidencija'
-                }
-              }
-            }
-          ]
-        }
-      });
-
-      // Add header row
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'Evidencija!A1:E1',
-        valueInputOption: 'RAW',
-        requestBody: {
-          values: [
-            ['DATUM', 'LOKACIJA', 'BROJ DJECE', 'BROJ VOLONTERA', 'VOLONTERI']
-          ]
-        }
-      });
-    }
-
-    // --- Append new attendance row ---
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Evidencija!A:E',
+      range: ATTENDANCE_RANGE,
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
-      requestBody: {
-        values: [[date, location, childrenCount, volunteerCount, selectedNames]]
-      }
+      requestBody: { values: [[data.date, data.location, data.childrenCount, data.volunteerCount, data.selectedNames]] }
     });
 
     res.json({ ok: true });
@@ -206,7 +209,7 @@ app.get('/api/evidencija', async (req, res) => {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Evidencija!A2:E'
+      range: `${ATTENDANCE_SHEET}!A2:E`
     });
 
     const rows = response.data.values || [];

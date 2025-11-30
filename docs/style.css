@@ -463,11 +463,6 @@ p {
   border-right: 1px solid var(--line);
 }
 
-.roster-table th:not(:last-child),
-.roster-table td:not(:last-child) {
-  border-right: 1px solid var(--line);
-}
-
 .roster-table th {
   background: #f8fafc;
   font-weight: 700;
@@ -543,21 +538,24 @@ p {
 }
 
 .sortable::after {
-  content: '↕';
+  content: '\2195'; /* up/down arrow */
   font-size: 11px;
   margin-left: 6px;
   color: #9ca3af;
 }
 
+
 .sortable.sorted-asc::after {
-  content: '▲';
+  content: '\25B2'; /* triangle up */
   color: var(--accent);
 }
 
+
 .sortable.sorted-desc::after {
-  content: '▼';
+  content: '\25BC'; /* triangle down */
   color: var(--accent);
 }
+
 
 .pill-tag {
   display: inline-flex;

@@ -329,17 +329,16 @@ function applyFilters() {
     const valA = getValue(a);
     const valB = getValue(b);
 
-  if (sortKey === 'grade') {
-    return sortDirection === 'asc' ? valA - valB : valB - valA;
-  }
+    if (sortKey === 'grade' || sortKey === 'hours') {
+      return sortDirection === 'asc' ? valA - valB : valB - valA;
+    }
 
-  if (sortKey === 'hours') {
-    return sortDirection === 'asc' ? valA - valB : valB - valA;
-  }
+    const compare = (first, second) =>
+      first.localeCompare(second, 'hr', { sensitivity: 'base' });
 
-  return sortDirection === 'asc'
-    ? valA.localeCompare(valB, 'hr', { sensitivity: 'base' })
-      : valB.localeCompare(valA, 'hr', { sensitivity: 'base' });
+    return sortDirection === 'asc'
+      ? compare(valA.toString(), valB.toString())
+      : compare(valB.toString(), valA.toString());
   });
 
   filteredVolunteers = list;
@@ -422,6 +421,7 @@ async function loadVolunteers() {
     let volunteers = [];
     let lastError = null;
     let success = false;
+
     for (const base of getCandidateBases()) {
       try {
         const data = await tryFetchJSON(`${base}/api/names`);
@@ -433,8 +433,9 @@ async function loadVolunteers() {
         lastError = err;
       }
     }
+
     if (!success) {
-      throw lastError || new Error('Nije pronađen dostupni backend');
+      throw lastError || new Error('Nije pronadjen dostupni backend');
     }
 
     allVolunteers = volunteers;
@@ -442,11 +443,11 @@ async function loadVolunteers() {
     renderVolunteers();
     refreshSortIndicators();
     statusEl.textContent = '';
-  setStatusChip('Spremno', 'success');
-  hydrateLocationSelect();
-  await loadExistingAttendance();
-  setDateInputDisplay(toIsoDate(dateInput ? dateInput.value : ''));
-  updateExistingIndicator();
+    setStatusChip('Spremno', 'success');
+    hydrateLocationSelect();
+    await loadExistingAttendance();
+    setDateInputDisplay(toIsoDate(dateInput ? dateInput.value : ''));
+    updateExistingIndicator();
   } catch (err) {
     console.error(err);
     statusEl.style.color = 'red';
