@@ -19,6 +19,7 @@ function getCandidateBases() {
 }
 
 const volunteerTableBody = document.getElementById('volunteer-table-body');
+const volunteerCardsEl = document.getElementById('volunteer-cards');
 const formEl = document.getElementById('attendance-form');
 const statusEl = document.getElementById('status');
 const statusChip = document.getElementById('status-chip');
@@ -96,6 +97,7 @@ function captureSelection() {
 
 function renderVolunteers() {
   volunteerTableBody.innerHTML = '';
+  if (volunteerCardsEl) volunteerCardsEl.innerHTML = '';
 
   if (!filteredVolunteers.length) {
     const row = document.createElement('tr');
@@ -106,6 +108,13 @@ function renderVolunteers() {
     cell.textContent = query ? `Nema rezultata za "${query}".` : 'Lista je prazna.';
     row.appendChild(cell);
     volunteerTableBody.appendChild(row);
+
+    if (volunteerCardsEl) {
+      const card = document.createElement('div');
+      card.className = 'vol-card empty-card';
+      card.textContent = query ? `Nema rezultata za "${query}".` : 'Lista je prazna.';
+      volunteerCardsEl.appendChild(card);
+    }
     updateCounts();
     return;
   }
@@ -184,6 +193,81 @@ function renderVolunteers() {
     });
 
     volunteerTableBody.appendChild(row);
+
+    // Mobile card
+    if (volunteerCardsEl) {
+      const card = document.createElement('div');
+      card.className = 'vol-card';
+
+      const header = document.createElement('div');
+      header.className = 'vol-card-header';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'vol-card-name';
+      nameEl.textContent = vol.name;
+      const gradeEl = document.createElement('div');
+      gradeEl.className = 'pill-tag grade';
+      gradeEl.style.background = colorForGrade(vol.grade || '');
+      gradeEl.textContent = displayGrade(vol.grade);
+      header.appendChild(nameEl);
+      header.appendChild(gradeEl);
+
+      const meta = document.createElement('div');
+      meta.className = 'vol-card-meta';
+      const schoolEl = document.createElement('span');
+      schoolEl.className = 'pill-tag';
+      schoolEl.style.background = colorForSchool(vol.school || '');
+      schoolEl.textContent = vol.school || 'N/A';
+      const hoursEl = document.createElement('span');
+      hoursEl.className = 'pill-tag soft';
+      hoursEl.textContent = `${vol.hours || '0'} h`;
+      meta.appendChild(schoolEl);
+      meta.appendChild(hoursEl);
+
+      const locationsEl = document.createElement('div');
+      locationsEl.className = 'vol-card-locs';
+      const locations = parseLocations(vol);
+      const locText = locations.length
+        ? locations
+            .map(loc => loc.trim())
+            .filter(Boolean)
+            .map(loc => loc.charAt(0).toUpperCase())
+            .join(', ')
+        : 'N/A';
+      locationsEl.textContent = locText;
+
+      const checkboxWrap = document.createElement('label');
+      checkboxWrap.className = 'vol-card-check';
+      const mobileCheckbox = document.createElement('input');
+      mobileCheckbox.type = 'checkbox';
+      mobileCheckbox.value = vol.name;
+      mobileCheckbox.checked = selectedNames.has(vol.name);
+      mobileCheckbox.addEventListener('change', ev => {
+        if (ev.target.checked) {
+          selectedNames.add(vol.name);
+        } else {
+          selectedNames.delete(vol.name);
+        }
+        // sync desktop checkbox
+        const desktopCb = volunteerTableBody.querySelector(`input[type="checkbox"][value="${CSS.escape(vol.name)}"]`);
+        if (desktopCb) desktopCb.checked = ev.target.checked;
+        updateCounts();
+      });
+      checkboxWrap.appendChild(mobileCheckbox);
+      checkboxWrap.appendChild(document.createTextNode(' Prisutan'));
+
+      card.appendChild(header);
+      card.appendChild(meta);
+      card.appendChild(locationsEl);
+      card.appendChild(checkboxWrap);
+      card.addEventListener('click', ev => {
+        if (ev.target.tagName.toLowerCase() !== 'input') {
+          mobileCheckbox.checked = !mobileCheckbox.checked;
+          mobileCheckbox.dispatchEvent(new Event('change'));
+        }
+      });
+
+      volunteerCardsEl.appendChild(card);
+    }
   });
 
   updateCounts();
