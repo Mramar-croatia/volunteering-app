@@ -482,11 +482,15 @@ p {
   font-size: 16px;
 }
 
-.col-grade,
 .col-hours,
 .col-present {
-  width: 64px;
-  min-width: 58px;
+  width: 78px;
+  min-width: 70px;
+}
+
+.col-grade {
+  width: 110px;
+  min-width: 90px;
 }
 
 .col-name {
@@ -494,8 +498,8 @@ p {
 }
 
 .col-locations {
-  min-width: 180px;
-  max-width: 240px;
+  min-width: 140px;
+  max-width: 180px;
   font-size: 14px;
   line-height: 1.3;
   color: var(--muted);
