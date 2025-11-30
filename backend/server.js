@@ -157,6 +157,15 @@ function parseStatisticsTsv(tsvText) {
   const schoolRows = [];
   const gradeRows = [];
   const summaryCards = [];
+  const metrics = {
+    volunteersRecorded: null,
+    volunteersCalculated: null,
+    childrenRecorded: null,
+    childrenCalculated: null,
+    totalVolunteers: null,
+    activeVolunteers: null,
+    pctActive: null
+  };
 
   dataRows.forEach(row => {
     const loc = cleanCell(row[0]);
@@ -200,20 +209,68 @@ function parseStatisticsTsv(tsvText) {
     const biljezeno = cleanCell(row[23]);
     const izracun = cleanCell(row[24]);
     if (tip) {
-      if (biljezeno) {
-        summaryCards.push({ label: `${tip} (bilježeno)`, value: biljezeno });
-      }
-      if (izracun) {
-        summaryCards.push({ label: `${tip} (izračun)`, value: izracun });
+      if (tip.toUpperCase() === 'VOLONTERI') {
+        if (biljezeno) metrics.volunteersRecorded = biljezeno;
+        if (izracun) metrics.volunteersCalculated = izracun;
+      } else if (tip.toUpperCase() === 'DJECA') {
+        if (biljezeno) metrics.childrenRecorded = biljezeno;
+        if (izracun) metrics.childrenCalculated = izracun;
       }
     }
 
     const valueName = cleanCell(row[26]);
     const valueNum = cleanCell(row[27]);
     if (valueName && valueNum) {
-      summaryCards.push({ label: valueName, value: valueNum });
+      const upper = valueName.toUpperCase();
+      if (upper === 'VOLONTERI') {
+        metrics.totalVolunteers = valueNum;
+      } else if (upper === 'AKTIVNI VOLONTERI') {
+        metrics.activeVolunteers = valueNum;
+      } else if (upper === 'POSTOTAK AKTIVNIH') {
+        metrics.pctActive = valueNum;
+      } else {
+        summaryCards.push({ label: valueName, value: valueNum });
+      }
     }
   });
+
+  const volunteerHours = metrics.volunteersCalculated || metrics.volunteersRecorded;
+  const childrenArrivals = metrics.childrenCalculated || metrics.childrenRecorded;
+
+  if (volunteerHours) {
+    const note =
+      metrics.volunteersCalculated && metrics.volunteersRecorded && metrics.volunteersCalculated !== metrics.volunteersRecorded
+        ? `Bilježeno: ${metrics.volunteersRecorded}`
+        : null;
+    summaryCards.push({ label: 'VOLONTERSKI SATI', value: volunteerHours, delta: note });
+  }
+  if (childrenArrivals) {
+    const note =
+      metrics.childrenCalculated && metrics.childrenRecorded && metrics.childrenCalculated !== metrics.childrenRecorded
+        ? `Bilježeno: ${metrics.childrenRecorded}`
+        : null;
+    summaryCards.push({ label: 'DOLASCI DJECE', value: childrenArrivals, delta: note });
+  }
+  if (metrics.totalVolunteers) {
+    summaryCards.push({ label: 'BROJ VOLONTERA', value: metrics.totalVolunteers });
+  }
+  if (metrics.activeVolunteers) {
+    summaryCards.push({ label: 'AKTIVNI VOLONTERI', value: metrics.activeVolunteers });
+  }
+  if (metrics.pctActive) {
+    const pctVal = metrics.pctActive.endsWith('%') ? metrics.pctActive : `${metrics.pctActive}%`;
+    summaryCards.push({ label: 'POSTOTAK AKTIVNIH', value: pctVal });
+  }
+
+  const childrenNum = toNumber(childrenArrivals);
+  const volunteerNum = toNumber(volunteerHours);
+  if (childrenNum !== null && volunteerNum) {
+    const ratio = volunteerNum === 0 ? null : childrenNum / volunteerNum;
+    if (ratio !== null) {
+      const pretty = ratio.toFixed(2).replace('.', ',');
+      summaryCards.push({ label: 'OMJER', value: pretty });
+    }
+  }
 
   const tables = [
     {
@@ -266,13 +323,8 @@ function parseStatisticsTsv(tsvText) {
       labels: schoolRows.map(r => r.school),
       datasets: [
         { label: 'Aktivni', data: schoolRows.map(r => toNumber(r.active) || 0) },
-        { label: 'Postotak aktivnih', data: schoolRows.map(r => toNumber(r.pctActive) || 0), type: 'line', yAxisID: 'y1' }
-      ],
-      options: {
-        scales: {
-          y1: { position: 'right', ticks: { callback: value => `${value}%` } }
-        }
-      }
+        { label: 'Dolazaka', data: schoolRows.map(r => toNumber(r.arrivals) || 0) }
+      ]
     });
   }
 
@@ -284,13 +336,8 @@ function parseStatisticsTsv(tsvText) {
       labels: gradeRows.map(r => r.grade),
       datasets: [
         { label: 'Aktivni', data: gradeRows.map(r => toNumber(r.active) || 0) },
-        { label: 'Postotak aktivnih', data: gradeRows.map(r => toNumber(r.pctActive) || 0), type: 'line', yAxisID: 'y1' }
-      ],
-      options: {
-        scales: {
-          y1: { position: 'right', ticks: { callback: value => `${value}%` } }
-        }
-      }
+        { label: 'Dolazaka', data: gradeRows.map(r => toNumber(r.arrivals) || 0) }
+      ]
     });
   }
 

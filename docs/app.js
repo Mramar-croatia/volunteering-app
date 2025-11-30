@@ -1512,12 +1512,15 @@ function renderStatsTables(tables = []) {
     const host = hostMap[table.id];
     if (!host) return;
     host.innerHTML = '';
+    const card = document.createElement('div');
+    card.className = 'stats-table-card';
     const title = document.createElement('div');
-    title.className = 'muted';
+    title.className = 'stats-table-title';
     title.textContent = table.title || '';
     const tableEl = buildStatsTable(table.columns, table.rows);
-    host.appendChild(title);
-    host.appendChild(tableEl);
+    card.appendChild(title);
+    card.appendChild(tableEl);
+    host.appendChild(card);
   });
 }
 
@@ -1569,9 +1572,11 @@ function renderStatsCharts(charts = []) {
           type: ds.type || chart.type || 'bar',
           backgroundColor: isLine ? color : `${color}33`,
           borderColor: color,
-          borderWidth: 2,
-          tension: 0.25,
-          fill: !isLine
+          borderWidth: 2.5,
+          tension: 0.2,
+          fill: !isLine,
+          borderRadius: isLine ? 0 : 6,
+          maxBarThickness: 44
         };
       });
 
@@ -1580,6 +1585,15 @@ function renderStatsCharts(charts = []) {
         maintainAspectRatio: false,
         plugins: {
           legend: { display: datasets.length > 1 }
+        },
+        scales: {
+          y: {
+            grid: { color: 'rgba(0,0,0,0.05)' },
+            ticks: { precision: 0 }
+          },
+          x: {
+            grid: { display: false }
+          }
         },
         ...chart.options
       };

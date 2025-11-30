@@ -1268,17 +1268,17 @@ p {
 
 .stats-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
 }
 
 .stats-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 12px 14px 10px;
   display: grid;
-  gap: 6px;
+  gap: 4px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
 }
 
@@ -1302,22 +1302,55 @@ p {
 
 .stats-table-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 14px;
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
-.stats-table-grid .roster-table {
-  display: table;
+.stats-table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
 }
 
-.mobile-active .stats-table-grid .roster-table {
-  display: table;
+.stats-table-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--ink);
+}
+
+.stats-table-card table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stats-table-card th,
+.stats-table-card td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: 14px;
+}
+
+.stats-table-card th {
+  background: rgba(124, 58, 237, 0.06);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.stats-table-card tr:last-child td {
+  border-bottom: none;
+}
+
+.stats-table-card tbody tr:nth-child(odd) {
+  background: rgba(0, 0, 0, 0.015);
 }
 
 .chart-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
 .chart-card {
@@ -1329,7 +1362,7 @@ p {
   flex-direction: column;
   gap: 10px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
-  min-height: 260px;
+  min-height: 240px;
 }
 
 .chart-card h4 {
@@ -1346,5 +1379,18 @@ p {
   max-height: none;
   min-height: 0;
   overflow: visible;
+}
+
+.stats-panel {
+  padding: 16px 18px;
+  gap: 10px;
+}
+
+.stats-panel .panel-header h2 {
+  margin: 0;
+}
+
+.stats-panel .panel-header p {
+  margin: 4px 0 0 0;
 }
 
