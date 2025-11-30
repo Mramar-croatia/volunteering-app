@@ -730,7 +730,7 @@ p {
 }
 
 .stat-chip-hours {
-  background: linear-gradient(135deg, #fef08a, #fcd34d);
+  background: linear-gradient(135deg, #fef08a, #fde047);
   border-color: #facc15;
   color: #7a4b00;
 }
@@ -739,73 +739,22 @@ p {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: linear-gradient(90deg, rgba(124, 58, 237, 0.06), rgba(14, 165, 233, 0.05));
+  gap: 10px;
+  padding: 6px 0 4px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
   cursor: pointer;
   width: 100%;
   margin-top: auto;
 }
 
-.vol-card-presence:hover {
-  border-color: rgba(124, 58, 237, 0.32);
-  box-shadow: 0 8px 20px rgba(124, 58, 237, 0.14);
-}
-
-.vol-card-presence:focus-within {
-  outline: 2px solid var(--glow);
-  outline-offset: 2px;
-}
-
-.switch {
-  position: relative;
-  width: 64px;
-  height: 28px;
-  flex-shrink: 0;
-}
-
-.switch input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
+.presence-check {
+  width: 30px;
+  height: 30px;
+  accent-color: #facc15;
   cursor: pointer;
-}
-
-.switch-slider {
-  position: absolute;
-  inset: 0;
-  background: #e2e8f0;
-  border-radius: 999px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  transition: background 160ms ease, box-shadow 160ms ease;
-  pointer-events: none;
-}
-
-.switch-slider::after {
-  content: '';
-  position: absolute;
-  left: 5px;
-  top: 5px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
-  transition: transform 160ms ease;
-}
-
-.switch input:checked + .switch-slider {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  box-shadow: 0 10px 22px rgba(34, 197, 94, 0.35);
-}
-
-.switch input:checked + .switch-slider::after {
-  transform: translateX(26px);
+  transform: scale(1.05);
 }
 
 .empty-card {
@@ -876,6 +825,29 @@ p {
   .panel-body,
   .panel-footer {
     padding: 12px 12px;
+  }
+
+  .panel-footer .hint,
+  .panel-header .muted {
+    display: none;
+  }
+
+  .panel.panel-wide .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .panel.panel-wide .aligned-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-start;
+  }
+
+  .panel.panel-wide .aligned-actions .ghost-btn {
+    width: auto;
+    flex: none;
   }
 
   .hero h1 {
@@ -949,9 +921,18 @@ p {
 
   .volunteer-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     margin-top: 8px;
     gap: 14px;
+  }
+
+  .vol-card {
+    padding: 12px 14px 12px;
+    gap: 10px;
+  }
+
+  .vol-card-name {
+    font-size: 21px;
   }
 
   .logo-badge {
@@ -971,7 +952,7 @@ p {
 
 .mobile-active .volunteer-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 14px;
   margin-top: 8px;
 }

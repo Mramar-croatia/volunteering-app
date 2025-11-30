@@ -241,21 +241,14 @@ function renderVolunteers() {
       const srOnly = document.createElement('span');
       srOnly.className = 'visually-hidden';
       srOnly.textContent = 'Prisutan';
-
-      const switchWrap = document.createElement('div');
-      switchWrap.className = 'switch';
       const mobileCheckbox = document.createElement('input');
       mobileCheckbox.type = 'checkbox';
       mobileCheckbox.value = vol.name;
       mobileCheckbox.checked = selectedNames.has(vol.name);
-      mobileCheckbox.className = 'present-checkbox';
-      const slider = document.createElement('span');
-      slider.className = 'switch-slider';
-      switchWrap.appendChild(mobileCheckbox);
-      switchWrap.appendChild(slider);
+      mobileCheckbox.className = 'present-checkbox presence-check';
 
       checkboxWrap.appendChild(srOnly);
-      checkboxWrap.appendChild(switchWrap);
+      checkboxWrap.appendChild(mobileCheckbox);
 
       mobileCheckbox.addEventListener('change', ev => {
         if (ev.target.checked) {
@@ -269,14 +262,12 @@ function renderVolunteers() {
         updateCounts();
       });
 
-      switchWrap.addEventListener('click', ev => ev.stopPropagation());
-
       card.appendChild(top);
       card.appendChild(statsRow);
       card.appendChild(meta);
       card.appendChild(checkboxWrap);
       card.addEventListener('click', ev => {
-        if (ev.target.tagName.toLowerCase() === 'input' || ev.target.closest('.switch')) {
+        if (ev.target.tagName.toLowerCase() === 'input') {
           return;
         }
         mobileCheckbox.checked = !mobileCheckbox.checked;
