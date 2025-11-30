@@ -14,9 +14,17 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID;
 const ROSTER_RANGE = 'BAZA!A2:I';
 const ATTENDANCE_SHEET = 'EVIDENCIJA';
-const ATTENDANCE_RANGE = `${ATTENDANCE_SHEET}!A:E`;
-const ATTENDANCE_HEADER_RANGE = `${ATTENDANCE_SHEET}!A1:E1`;
-const ATTENDANCE_HEADERS = ['DATUM', 'LOKACIJA', 'BROJ DJECE', 'BROJ VOLONTERA', 'VOLONTERI'];
+const ATTENDANCE_RANGE = `${ATTENDANCE_SHEET}!A:G`;
+const ATTENDANCE_HEADER_RANGE = `${ATTENDANCE_SHEET}!A1:G1`;
+const ATTENDANCE_HEADERS = [
+  'DATUM',
+  'LOKACIJA',
+  'BROJ DJECE',
+  'BROJ VOLONTERA',
+  'VOLONTERI',
+  'NAPOMENA',
+  'PRIJAVIO'
+];
 const oauthClient = GOOGLE_OAUTH_CLIENT_ID ? new OAuth2Client(GOOGLE_OAUTH_CLIENT_ID) : null;
 
 if (!SPREADSHEET_ID) {
@@ -67,21 +75,33 @@ async function ensureAttendanceSheet(sheetsClient) {
     s => s.properties && s.properties.title === ATTENDANCE_SHEET
   );
 
-  if (sheetExists) return;
+  if (!sheetExists) {
+    await sheetsClient.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: ATTENDANCE_SHEET } } }]
+      }
+    });
+  }
 
-  await sheetsClient.spreadsheets.batchUpdate({
+  // Ensure header row matches expected columns (including PRIJAVIO in column G)
+  const headerRes = await sheetsClient.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    requestBody: {
-      requests: [{ addSheet: { properties: { title: ATTENDANCE_SHEET } } }]
-    }
+    range: ATTENDANCE_HEADER_RANGE
   });
+  const headerRow = (headerRes.data.values && headerRes.data.values[0]) || [];
+  const needsUpdate =
+    headerRow.length < ATTENDANCE_HEADERS.length ||
+    ATTENDANCE_HEADERS.some((val, idx) => (headerRow[idx] || '') !== val);
 
-  await sheetsClient.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
-    range: ATTENDANCE_HEADER_RANGE,
-    valueInputOption: 'RAW',
-    requestBody: { values: [ATTENDANCE_HEADERS] }
-  });
+  if (needsUpdate) {
+    await sheetsClient.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: ATTENDANCE_HEADER_RANGE,
+      valueInputOption: 'RAW',
+      requestBody: { values: [ATTENDANCE_HEADERS] }
+    });
+  }
 }
 
 function formatDateToISO(input) {
@@ -217,6 +237,8 @@ app.post('/api/attendance', requireGoogleAuth, async (req, res) => {
       return res.status(400).json({ error: validation.message });
     }
     const data = validation.payload;
+    const submittedBy =
+      (req.googleUser && (req.googleUser.email || req.googleUser.name || req.googleUser.userId)) || '';
     const sheets = await getSheetsClient();
 
     await ensureAttendanceSheet(sheets);
@@ -226,7 +248,9 @@ app.post('/api/attendance', requireGoogleAuth, async (req, res) => {
       range: ATTENDANCE_RANGE,
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: [[data.date, data.location, data.childrenCount, data.volunteerCount, data.selectedNames]] }
+      requestBody: {
+        values: [[data.date, data.location, data.childrenCount, data.volunteerCount, data.selectedNames, '', submittedBy]]
+      }
     });
 
     res.json({ ok: true });
@@ -247,7 +271,7 @@ app.get('/api/evidencija', async (req, res) => {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${ATTENDANCE_SHEET}!A2:E`
+      range: `${ATTENDANCE_SHEET}!A2:G`
     });
 
     const rows = response.data.values || [];
@@ -258,7 +282,8 @@ app.get('/api/evidencija', async (req, res) => {
         location: row[1] || '',
         childrenCount: row[2] || '',
         volunteerCount: row[3] || '',
-        volunteers: row[4] || ''
+        volunteers: row[4] || '',
+        submittedBy: row[6] || ''
       }));
 
     res.json(result);

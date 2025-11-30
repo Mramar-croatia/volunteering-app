@@ -17,8 +17,8 @@ Volunteer attendance tracker for AC Zlatni Zmaj. The backend writes to Google Sh
 
 ## API
 - `GET /api/names` - volunteer roster from `BAZA!A2:I`.
-- `POST /api/attendance` - append attendance to `Evidencija` (auto-creates sheet + headers). Body: `{ selectedDate, location, childrenCount, volunteerCount, selected: [] }`.
-- `GET /api/evidencija` - existing attendance rows.
+- `POST /api/attendance` - append attendance to `Evidencija` (auto-creates sheet + headers). Body: `{ selectedDate, location, childrenCount, volunteerCount, selected: [] }`. Column G (`PRIJAVIO`) is filled with the signed-in Google account email from the provided ID token.
+- `GET /api/evidencija` - existing attendance rows (includes `submittedBy` if present in column G).
 - `GET /health` - liveness probe.
 
 ## Frontend
