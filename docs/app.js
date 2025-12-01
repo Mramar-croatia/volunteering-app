@@ -134,7 +134,7 @@ function refreshHeroStats() {
   if (!statTotalEl || !statSelectedEl || !statTotalLabel || !statSelectedLabel) return;
 
   const labels = {
-    'tab-unos': { total: 'Na listi', secondary: 'Ozna-ìeno' },
+    'tab-unos': { total: 'Na listi', secondary: 'Označeno' },
     'tab-baza': { total: 'Volontera', secondary: 'Sati' },
     'tab-termini': { total: 'Broj termina', secondary: 'Broj djece' },
     'tab-statistika': { total: 'Tablice', secondary: 'Grafovi' }
@@ -207,18 +207,27 @@ function formatSchoolNameForDisplay(name) {
   if (trimmed.toUpperCase() === 'N/A') return 'N/A';
   if (!isMobileView()) return trimmed;
 
-  const map = {
-    'xv. gimnazija (mioc)': 'MIOC',
-    'iii. gimnazija': 'III. gimnazija',
-    'ii. gimnazija': 'II. gimnazija',
-    'i. gimnazija': 'I. gimnazija',
-    'gimnazija titusa brezojevica': 'GTB',
-    'klasicna gimnazija': 'Klasicna'
-  };
-  const normalized = trimmed.toLowerCase();
-  if (map[normalized]) return map[normalized];
+  // Mobile: collapse long school names to a consistent short code.
+  const canonical = trimmed
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[().]/g, ' ')
+    .replace(/[^\p{L}0-9\s]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
 
-  const tokens = trimmed
+  const shortMap = {
+    'xv gimnazija mioc': 'MIOC',
+    'iii gimnazija': 'III. gimnazija',
+    'ii gimnazija': 'II. gimnazija',
+    'i gimnazija': 'I. gimnazija',
+    'gimnazija titusa brezojevica': 'GTB',
+    'klasicna gimnazija': 'Klasična'
+  };
+  if (shortMap[canonical]) return shortMap[canonical];
+
+  const tokens = canonical
     .split(/\s+/)
     .map(t => t.replace(/[^\p{L}0-9]/gu, ''))
     .filter(Boolean);
@@ -1908,11 +1917,11 @@ function colorForSchool(school) {
   ];
 
   const SCHOOL_COLOR_MAP = {
-    'gimnazija antun gustav mato+í samobor': '#fecdd3', // red
-    'gimnazija lucijana vranjanina': '#bbf7d0', // green
-    'klasi-ìna gimnazija': '#fef3c7', // yellow
-    'prirodoslovna +íkola vladimir prelog': '#bfe9ff', // cyan
-    'privatna umjetni-ìka gimnazija': '#bfdbfe', // blue
+    'gimnazija antun gustav matoš samobor': '#ffb9c1ff', // red
+    'gimnazija lucijana vranjanina': '#b6ffcfff', // green
+    'klasična gimnazija': '#ffea95ff', // yellow
+    'prirodoslovna škola vladimir prelog': '#bfe9ff', // cyan
+    'privatna umjetnička gimnazija': '#febff2ff', // blue
     'xv. gimnazija (mioc)': '#93c5fd' // blue
   };
 
