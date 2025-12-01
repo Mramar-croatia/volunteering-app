@@ -1,4 +1,4 @@
-// frontend/app.js
+﻿// frontend/app.js
 
 // Ordered by priority; app will try each until one works.
 const API_BASE_URLS = [
@@ -36,6 +36,8 @@ const eventsTableBody = document.getElementById('events-table-body');
 const statsSummaryEl = document.getElementById('stats-summary');
 const statsUpdatedEl = document.getElementById('stats-updated');
 const statsChartsEl = document.getElementById('stats-charts');
+const statsTableCountEl = document.getElementById('stats-table-count');
+const statsChartCountEl = document.getElementById('stats-chart-count');
 const statsTables = {
   location: document.getElementById('stats-table-location'),
   school: document.getElementById('stats-table-school'),
@@ -132,7 +134,7 @@ function refreshHeroStats() {
   if (!statTotalEl || !statSelectedEl || !statTotalLabel || !statSelectedLabel) return;
 
   const labels = {
-    'tab-unos': { total: 'Na listi', secondary: 'Označeno' },
+    'tab-unos': { total: 'Na listi', secondary: 'Ozna-ìeno' },
     'tab-baza': { total: 'Volontera', secondary: 'Sati' },
     'tab-termini': { total: 'Broj termina', secondary: 'Broj djece' },
     'tab-statistika': { total: 'Tablice', secondary: 'Grafovi' }
@@ -189,6 +191,53 @@ function updateCounts() {
 function applyResponsiveLayout() {
   const isMobile = window.matchMedia('(max-width: 720px)').matches;
   document.body.classList.toggle('mobile-active', isMobile);
+}
+
+function isMobileView() {
+  if (document.body.classList.contains('mobile-active')) return true;
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(max-width: 720px)').matches;
+  }
+  return false;
+}
+
+function formatSchoolNameForDisplay(name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return 'N/A';
+  if (trimmed.toUpperCase() === 'N/A') return 'N/A';
+  if (!isMobileView()) return trimmed;
+
+  const map = {
+    'xv. gimnazija (mioc)': 'MIOC',
+    'iii. gimnazija': 'III. gimnazija',
+    'ii. gimnazija': 'II. gimnazija',
+    'i. gimnazija': 'I. gimnazija',
+    'gimnazija titusa brezojevica': 'GTB',
+    'klasicna gimnazija': 'Klasicna'
+  };
+  const normalized = trimmed.toLowerCase();
+  if (map[normalized]) return map[normalized];
+
+  const tokens = trimmed
+    .split(/\s+/)
+    .map(t => t.replace(/[^\p{L}0-9]/gu, ''))
+    .filter(Boolean);
+
+  const abbreviation = tokens.map(t => t[0]).join('').toUpperCase();
+  if (abbreviation && abbreviation.length < trimmed.length) {
+    return abbreviation;
+  }
+
+  return trimmed;
+}
+
+function buildSchoolTag(school, fallback = 'N/A') {
+  const tag = document.createElement('span');
+  tag.className = 'pill-tag';
+  tag.textContent = formatSchoolNameForDisplay(school || fallback);
+  tag.style.background = colorForSchool(school || '');
+  tag.style.borderColor = 'rgba(0, 0, 0, 0.05)';
+  return tag;
 }
 
 function setActiveTab(targetId) {
@@ -274,11 +323,7 @@ function renderVolunteers() {
 
     const schoolCell = document.createElement('td');
     schoolCell.className = 'col-school';
-    const schoolTag = document.createElement('span');
-    schoolTag.className = 'pill-tag';
-    schoolTag.textContent = vol.school || 'N/A';
-    schoolTag.style.background = colorForSchool(vol.school || '');
-    schoolTag.style.borderColor = 'rgba(0,0,0,0.05)';
+    const schoolTag = buildSchoolTag(vol.school, 'N/A');
     schoolCell.appendChild(schoolTag);
     row.appendChild(schoolCell);
 
@@ -363,10 +408,7 @@ function renderVolunteers() {
 
       const meta = document.createElement('div');
       meta.className = 'vol-card-meta';
-      const schoolEl = document.createElement('span');
-      schoolEl.className = 'pill-tag';
-      schoolEl.style.background = colorForSchool(vol.school || '');
-      schoolEl.textContent = vol.school || 'N/A';
+      const schoolEl = buildSchoolTag(vol.school, 'N/A');
       meta.appendChild(schoolEl);
 
       const statsRow = document.createElement('div');
@@ -464,10 +506,7 @@ function renderVolunteerDatabaseTable(list = allVolunteers) {
 
     const schoolCell = document.createElement('td');
     schoolCell.className = 'col-school';
-    const schoolTag = document.createElement('span');
-    schoolTag.className = 'pill-tag';
-    schoolTag.textContent = vol.school || 'N/A';
-    schoolTag.style.background = colorForSchool(vol.school || '');
+    const schoolTag = buildSchoolTag(vol.school, 'N/A');
     schoolCell.appendChild(schoolTag);
     row.appendChild(schoolCell);
 
@@ -483,12 +522,12 @@ function renderVolunteerDatabaseTable(list = allVolunteers) {
     const locCell = document.createElement('td');
     locCell.className = 'col-locations';
     const locationsList = parseLocations(vol);
-    locCell.textContent = locationsList.length ? locationsList.join(', ') : '—';
+    locCell.textContent = locationsList.length ? locationsList.join(', ') : 'GÇö';
     row.appendChild(locCell);
 
     const phoneCell = document.createElement('td');
     phoneCell.className = 'col-phone';
-    phoneCell.textContent = vol.phone || '—';
+    phoneCell.textContent = vol.phone || 'GÇö';
     row.appendChild(phoneCell);
 
     const hoursCell = document.createElement('td');
@@ -510,10 +549,7 @@ function renderVolunteerDatabaseTable(list = allVolunteers) {
 
       const badgeRow = document.createElement('div');
       badgeRow.className = 'pill-row';
-      const schoolTag = document.createElement('span');
-      schoolTag.className = 'pill-tag';
-      schoolTag.style.background = colorForSchool(vol.school || '');
-      schoolTag.textContent = vol.school || 'Škola';
+      const schoolTag = buildSchoolTag(vol.school, 'Škola');
       const gradeTag = document.createElement('span');
       gradeTag.className = 'pill-tag grade';
       gradeTag.style.background = colorForGrade(vol.grade || '');
@@ -918,7 +954,7 @@ async function loadVolunteers() {
     if (bazaTableBody) {
       bazaTableBody.innerHTML = `
         <tr class="empty-row">
-          <td colspan="6">Ne mogu ucitati bazu.</td>
+          <td colspan="6">Ne mogu ucitati bAzurirano.</td>
         </tr>`;
     }
     setStatusChip('Greska', 'error');
@@ -1330,7 +1366,7 @@ function renderEventsList(list = eventsFiltered) {
     const row = document.createElement('tr');
 
     const iso = normalizeDate(entry.date);
-    const displayDate = formatDateForDisplay(iso) || entry.date || '—';
+    const displayDate = formatDateForDisplay(iso) || entry.date || 'GÇö';
 
     const dateCell = document.createElement('td');
     dateCell.className = 'col-date';
@@ -1341,7 +1377,7 @@ function renderEventsList(list = eventsFiltered) {
     locCell.className = 'col-location center';
     const locPill = document.createElement('span');
     locPill.className = 'pill-tag';
-    locPill.textContent = entry.location || '—';
+    locPill.textContent = entry.location || 'GÇö';
     locPill.style.background = colorForLocationName(entry.location || '');
     locPill.style.borderColor = 'rgba(0,0,0,0.05)';
     locCell.appendChild(locPill);
@@ -1359,7 +1395,7 @@ function renderEventsList(list = eventsFiltered) {
 
     const volunteersCell = document.createElement('td');
     volunteersCell.className = 'col-volunteers';
-    volunteersCell.textContent = entry.volunteers || '—';
+    volunteersCell.textContent = entry.volunteers || 'GÇö';
     row.appendChild(volunteersCell);
 
     eventsTableBody.appendChild(row);
@@ -1468,6 +1504,16 @@ function renderStatsSummary(cards = []) {
 }
 
 function buildStatsTable(columns = [], rows = [], tableId = '') {
+  const numericColumns = columns.map((_, colIdx) => {
+    if (!rows.length) return false;
+    return rows.every(row => {
+      const val = row[colIdx];
+      if (val === null || val === undefined || val === '') return true;
+      const num = Number.parseFloat(String(val).replace(',', '.'));
+      return !Number.isNaN(num);
+    });
+  });
+
   const table = document.createElement('table');
   table.className = 'roster-table compact';
   const thead = document.createElement('thead');
@@ -1478,12 +1524,15 @@ function buildStatsTable(columns = [], rows = [], tableId = '') {
     label.textContent = col;
     th.appendChild(label);
     th.classList.add('sortable');
+    if (numericColumns[idx]) {
+      th.classList.add('numeric');
+    }
     th.tabIndex = 0;
     const indicator = document.createElement('span');
     indicator.className = 'sort-indicator';
     const sortState = statsSortState[tableId];
     if (sortState && sortState.col === idx) {
-      indicator.textContent = sortState.dir === 'asc' ? '▲' : '▼';
+      indicator.textContent = sortState.dir === 'asc' ? 'Gû¦' : 'Gû+';
     } else {
       indicator.textContent = '';
     }
@@ -1514,8 +1563,12 @@ function buildStatsTable(columns = [], rows = [], tableId = '') {
   } else {
     rows.forEach(row => {
       const tr = document.createElement('tr');
-      row.forEach(cell => {
+      row.forEach((cell, cellIdx) => {
         const td = document.createElement('td');
+        td.setAttribute('data-label', columns[cellIdx] || '');
+        if (numericColumns[cellIdx]) {
+          td.classList.add('numeric');
+        }
         td.textContent = cell || '-';
         tr.appendChild(td);
       });
@@ -1622,7 +1675,7 @@ function renderStatsCharts(charts = []) {
     return;
   }
 
-  const palette = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#0ea5e9', '#8b5cf6'];
+  const palette = ['#7c3aed', '#facc15', '#a855f7', '#fbbf24', '#c084fc', '#fde68a'];
 
   charts.forEach((chart, chartIndex) => {
     const card = document.createElement('div');
@@ -1648,8 +1701,9 @@ function renderStatsCharts(charts = []) {
       const datasets = (chart.datasets || []).map((ds, idx) => {
         const color = palette[idx % palette.length];
         const isLine = ds.type === 'line' || chart.type === 'line';
+        const datasetLabel = (ds.label || `Serija ${idx + 1}`).toString().toUpperCase();
         return {
-          label: ds.label || `Serija ${idx + 1}`,
+          label: datasetLabel,
           data: ds.data || [],
           type: ds.type || chart.type || 'bar',
           backgroundColor: isLine ? color : `${color}33`,
@@ -1725,19 +1779,19 @@ function renderStats(payload) {
 
 function renderStatsLoading() {
   if (statsSummaryEl) {
-    statsSummaryEl.innerHTML = '<p class=\"muted\">Učitavanje statistike...</p>';
+    statsSummaryEl.innerHTML = '<p class=\"muted\">U-ìitavanje statistike...</p>';
   }
   if (statsChartsEl) {
-    statsChartsEl.innerHTML = '<div class=\"empty-row\">Grafovi se učitavaju...</div>';
+    statsChartsEl.innerHTML = '<div class=\"empty-row\">Grafovi se u-ìitavaju...</div>';
   }
 }
 
 function renderStatsError(message) {
   if (statsSummaryEl) {
-    statsSummaryEl.innerHTML = `<p class=\"status error\">${message || 'Neuspjelo učitavanje statistike.'}</p>`;
+    statsSummaryEl.innerHTML = `<p class=\"status error\">${message || 'Neuspjelo u-ìitavanje statistike.'}</p>`;
   }
   if (statsChartsEl) {
-    statsChartsEl.innerHTML = '<div class=\"empty-row\">Nije moguće prikazati grafove.</div>';
+    statsChartsEl.innerHTML = '<div class=\"empty-row\">Nije mogu-çe prikazati grafove.</div>';
   }
 }
 
@@ -1759,7 +1813,7 @@ async function loadStatistics() {
     }
   }
   console.error('Failed to load statistika', lastError);
-  renderStatsError('Nije moguće dohvatiti statistiku.');
+  renderStatsError('Nije mogu-çe dohvatiti statistiku.');
 }
 
 function normalizeDate(dateStr) {
@@ -1854,11 +1908,11 @@ function colorForSchool(school) {
   ];
 
   const SCHOOL_COLOR_MAP = {
-    'gimnazija antun gustav matoš samobor': '#fecdd3', // red
+    'gimnazija antun gustav mato+í samobor': '#fecdd3', // red
     'gimnazija lucijana vranjanina': '#bbf7d0', // green
-    'klasična gimnazija': '#fef3c7', // yellow
-    'prirodoslovna škola vladimir prelog': '#bfe9ff', // cyan
-    'privatna umjetnička gimnazija': '#bfdbfe', // blue
+    'klasi-ìna gimnazija': '#fef3c7', // yellow
+    'prirodoslovna +íkola vladimir prelog': '#bfe9ff', // cyan
+    'privatna umjetni-ìka gimnazija': '#bfdbfe', // blue
     'xv. gimnazija (mioc)': '#93c5fd' // blue
   };
 
@@ -1906,8 +1960,8 @@ function colorForLocationName(name) {
     'mioc': '#bfdbfe',
     'kralj tomislav': '#fef3c7',
     'samobor': '#ddd6fe',
-    'trešnjevka': '#bbf7d0',
-    'špansko': '#fecdd3'
+    'tre+ínjevka': '#bbf7d0',
+    '+ípansko': '#fecdd3'
   };
 
   const key = (name || '').trim().toLowerCase();
@@ -1916,3 +1970,8 @@ function colorForLocationName(name) {
   const hash = Array.from(key).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
   return palette[hash % palette.length];
 }
+
+
+
+
+

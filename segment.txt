@@ -1,0 +1,8 @@
+function renderStats(payload) {
+  if (!payload) return;
+  renderStatsSummary(payload.summaryCards || []);
+  renderStatsTables(payload.tables || []);
+  renderStatsCharts(payload.charts || []);
+
+  if (statsUpdatedEl) {
+    const updated = payload.lastUpdated ? new Date(payload.lastUpdated) : nu
