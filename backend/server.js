@@ -15,6 +15,35 @@ const ATTENDANCE_SHEET = 'EVIDENCIJA';
 const ATTENDANCE_RANGE = `${ATTENDANCE_SHEET}!A:E`;
 const ATTENDANCE_HEADER_RANGE = `${ATTENDANCE_SHEET}!A1:E1`;
 const ATTENDANCE_HEADERS = ['DATUM', 'LOKACIJA', 'BROJ DJECE', 'BROJ VOLONTERA', 'VOLONTERI'];
+
+// Column indexes for the published STATISTIKA TSV export
+const STATS_COLUMNS = {
+  location: 0,
+  locationChildren: 1,
+  locationVolunteers: 2,
+  locationSessions: 3,
+  locationPctChildren: 4,
+  locationPctVolunteers: 5,
+  locationRatio: 6,
+  schoolName: 8,
+  schoolVolunteers: 9,
+  schoolActive: 10,
+  schoolPctActive: 11,
+  schoolArrivals: 12,
+  schoolPctHours: 13,
+  gradeName: 15,
+  gradeVolunteers: 16,
+  gradeActive: 17,
+  gradePctActive: 18,
+  gradeArrivals: 19,
+  gradePctHours: 20,
+  metricType: 22,
+  metricRecorded: 23,
+  metricCalculated: 24,
+  summaryLabel: 26,
+  summaryValue: 27
+};
+
 // Public STATISTIKA sheet (published TSV)
 const STATS_TSV_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vSVWywHd-Rw3go4LqK8WnV3BK7NPeUI-2NSZa65De3XmY8Ka4k2VmQaq_iNfEojwgFbM7pYnkBvIu-S/pub?gid=425993995&single=true&output=tsv';
@@ -26,6 +55,8 @@ if (!SPREADSHEET_ID) {
 app.use(cors()); // allow frontend calls from another domain
 app.use(express.json()); // parse JSON request bodies
 
+// --- Google Sheets helpers --------------------------------------------------
+
 function getAuth() {
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
   const rawKey = process.env.GOOGLE_PRIVATE_KEY;
@@ -35,6 +66,7 @@ function getAuth() {
     throw new Error('Missing Google service account credentials');
   }
 
+  // The key arrives with literal "\n" sequences; restore them to real newlines.
   const privateKey = rawKey.replace(/\\n/g, '\n');
 
   return new google.auth.JWT({
@@ -59,6 +91,7 @@ function assertSpreadsheetId(res) {
 }
 
 async function ensureAttendanceSheet(sheetsClient) {
+  // Create the attendance sheet on first run so later writes succeed.
   const spreadsheet = await sheetsClient.spreadsheets.get({
     spreadsheetId: SPREADSHEET_ID
   });
@@ -84,11 +117,14 @@ async function ensureAttendanceSheet(sheetsClient) {
   });
 }
 
+// --- Formatting helpers -----------------------------------------------------
+
 function formatDateToISO(input) {
   if (!input) return '';
   const trimmed = input.toString().trim().replace(/\./g, '/').replace(/\s+/g, '');
   const cleaned = trimmed.replace(/\/+$/, '');
-  if (cleaned.includes('-')) return cleaned;
+  if (cleaned.includes('-')) return cleaned; // already ISO-ish
+
   const parts = cleaned.split('/').filter(Boolean);
   if (parts.length === 3) {
     const [dd, mm, yyyy] = parts.map(p => p.padStart(2, '0'));
@@ -141,22 +177,20 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function parseStatisticsTsv(tsvText) {
-  if (!tsvText) return null;
-  const rows = tsvText
+// --- Statistics parsing (STATISTIKA sheet) ---------------------------------
+
+function parseTsvRows(tsvText) {
+  return tsvText
     .split(/\r?\n/)
     .map(line => line.split('\t'))
     .filter(row => row.length && row.some(cell => cleanCell(cell)));
+}
 
-  const headerIndex = rows.findIndex(row => cleanCell(row[0]).toUpperCase() === 'LOKACIJA');
-  if (headerIndex === -1) return null;
-
-  const dataRows = rows.slice(headerIndex + 1);
-
+function collectStatRows(dataRows) {
   const locationRows = [];
   const schoolRows = [];
   const gradeRows = [];
-  const summaryCards = [];
+  const extraCards = [];
   const metrics = {
     volunteersRecorded: null,
     volunteersCalculated: null,
@@ -167,116 +201,138 @@ function parseStatisticsTsv(tsvText) {
     pctActive: null
   };
 
-  dataRows.forEach(row => {
-    const loc = cleanCell(row[0]);
-    if (loc) {
+  for (const row of dataRows) {
+    const location = cleanCell(row[STATS_COLUMNS.location]);
+    if (location) {
       locationRows.push({
-        location: loc,
-        children: cleanCell(row[1]),
-        volunteers: cleanCell(row[2]),
-        sessions: cleanCell(row[3]),
-        pctChildren: cleanCell(row[4]),
-        pctVolunteers: cleanCell(row[5]),
-        ratio: cleanCell(row[6])
+        location,
+        children: cleanCell(row[STATS_COLUMNS.locationChildren]),
+        volunteers: cleanCell(row[STATS_COLUMNS.locationVolunteers]),
+        sessions: cleanCell(row[STATS_COLUMNS.locationSessions]),
+        pctChildren: cleanCell(row[STATS_COLUMNS.locationPctChildren]),
+        pctVolunteers: cleanCell(row[STATS_COLUMNS.locationPctVolunteers]),
+        ratio: cleanCell(row[STATS_COLUMNS.locationRatio])
       });
     }
 
-    const school = cleanCell(row[8]);
+    const school = cleanCell(row[STATS_COLUMNS.schoolName]);
     if (school) {
       schoolRows.push({
         school,
-        volunteers: cleanCell(row[9]),
-        active: cleanCell(row[10]),
-        pctActive: cleanCell(row[11]),
-        arrivals: cleanCell(row[12]),
-        pctHours: cleanCell(row[13])
+        volunteers: cleanCell(row[STATS_COLUMNS.schoolVolunteers]),
+        active: cleanCell(row[STATS_COLUMNS.schoolActive]),
+        pctActive: cleanCell(row[STATS_COLUMNS.schoolPctActive]),
+        arrivals: cleanCell(row[STATS_COLUMNS.schoolArrivals]),
+        pctHours: cleanCell(row[STATS_COLUMNS.schoolPctHours])
       });
     }
 
-    const grade = cleanCell(row[15]);
+    const grade = cleanCell(row[STATS_COLUMNS.gradeName]);
     if (grade) {
       gradeRows.push({
         grade,
-        volunteers: cleanCell(row[16]),
-        active: cleanCell(row[17]),
-        pctActive: cleanCell(row[18]),
-        arrivals: cleanCell(row[19]),
-        pctHours: cleanCell(row[20])
+        volunteers: cleanCell(row[STATS_COLUMNS.gradeVolunteers]),
+        active: cleanCell(row[STATS_COLUMNS.gradeActive]),
+        pctActive: cleanCell(row[STATS_COLUMNS.gradePctActive]),
+        arrivals: cleanCell(row[STATS_COLUMNS.gradeArrivals]),
+        pctHours: cleanCell(row[STATS_COLUMNS.gradePctHours])
       });
     }
 
-    const tip = cleanCell(row[22]);
-    const biljezeno = cleanCell(row[23]);
-    const izracun = cleanCell(row[24]);
-    if (tip) {
-      if (tip.toUpperCase() === 'VOLONTERI') {
-        if (biljezeno) metrics.volunteersRecorded = biljezeno;
-        if (izracun) metrics.volunteersCalculated = izracun;
-      } else if (tip.toUpperCase() === 'DJECA') {
-        if (biljezeno) metrics.childrenRecorded = biljezeno;
-        if (izracun) metrics.childrenCalculated = izracun;
-      }
+    const metricType = cleanCell(row[STATS_COLUMNS.metricType]).toUpperCase();
+    const recorded = cleanCell(row[STATS_COLUMNS.metricRecorded]);
+    const calculated = cleanCell(row[STATS_COLUMNS.metricCalculated]);
+    if (metricType === 'VOLONTERI') {
+      if (recorded) metrics.volunteersRecorded = recorded;
+      if (calculated) metrics.volunteersCalculated = calculated;
+    } else if (metricType === 'DJECA') {
+      if (recorded) metrics.childrenRecorded = recorded;
+      if (calculated) metrics.childrenCalculated = calculated;
     }
 
-    const valueName = cleanCell(row[26]);
-    const valueNum = cleanCell(row[27]);
-    if (valueName && valueNum) {
-      const upper = valueName.toUpperCase();
+    const summaryLabel = cleanCell(row[STATS_COLUMNS.summaryLabel]);
+    const summaryValue = cleanCell(row[STATS_COLUMNS.summaryValue]);
+    if (summaryLabel && summaryValue) {
+      const upper = summaryLabel.toUpperCase();
       if (upper === 'VOLONTERI') {
-        metrics.totalVolunteers = valueNum;
+        metrics.totalVolunteers = summaryValue;
       } else if (upper === 'AKTIVNI VOLONTERI') {
-        metrics.activeVolunteers = valueNum;
+        metrics.activeVolunteers = summaryValue;
       } else if (upper === 'POSTOTAK AKTIVNIH') {
-        metrics.pctActive = valueNum;
+        metrics.pctActive = summaryValue;
       } else {
-        summaryCards.push({ label: valueName, value: valueNum });
+        extraCards.push({ label: summaryLabel, value: summaryValue });
       }
     }
-  });
+  }
 
+  return { locationRows, schoolRows, gradeRows, metrics, extraCards };
+}
+
+function buildSummaryCards(metrics, extraCards) {
+  const cards = [...extraCards];
   const volunteerHours = metrics.volunteersCalculated || metrics.volunteersRecorded;
   const childrenArrivals = metrics.childrenCalculated || metrics.childrenRecorded;
 
   if (volunteerHours) {
-    const note =
-      metrics.volunteersCalculated && metrics.volunteersRecorded && metrics.volunteersCalculated !== metrics.volunteersRecorded
-        ? `Bilježeno: ${metrics.volunteersRecorded}`
-        : null;
-    summaryCards.push({ label: 'VOLONTERSKI SATI', value: volunteerHours, delta: note });
+    const mismatch =
+      metrics.volunteersCalculated &&
+      metrics.volunteersRecorded &&
+      metrics.volunteersCalculated !== metrics.volunteersRecorded;
+    cards.push({
+      label: 'VOLONTERSKI SATI',
+      value: volunteerHours,
+      delta: mismatch ? `Biljezeno: ${metrics.volunteersRecorded}` : null
+    });
   }
+
   if (childrenArrivals) {
-    const note =
-      metrics.childrenCalculated && metrics.childrenRecorded && metrics.childrenCalculated !== metrics.childrenRecorded
-        ? `Bilježeno: ${metrics.childrenRecorded}`
-        : null;
-    summaryCards.push({ label: 'DOLASCI DJECE', value: childrenArrivals, delta: note });
+    const mismatch =
+      metrics.childrenCalculated &&
+      metrics.childrenRecorded &&
+      metrics.childrenCalculated !== metrics.childrenRecorded;
+    cards.push({
+      label: 'DOLASCI DJECE',
+      value: childrenArrivals,
+      delta: mismatch ? `Biljezeno: ${metrics.childrenRecorded}` : null
+    });
   }
+
   if (metrics.totalVolunteers) {
-    summaryCards.push({ label: 'BROJ VOLONTERA', value: metrics.totalVolunteers });
+    cards.push({ label: 'BROJ VOLONTERA', value: metrics.totalVolunteers });
   }
   if (metrics.activeVolunteers) {
-    summaryCards.push({ label: 'AKTIVNI VOLONTERI', value: metrics.activeVolunteers });
+    cards.push({ label: 'AKTIVNI VOLONTERI', value: metrics.activeVolunteers });
   }
   if (metrics.pctActive) {
     const pctVal = metrics.pctActive.endsWith('%') ? metrics.pctActive : `${metrics.pctActive}%`;
-    summaryCards.push({ label: 'POSTOTAK AKTIVNIH', value: pctVal });
+    cards.push({ label: 'POSTOTAK AKTIVNIH', value: pctVal });
   }
 
   const childrenNum = toNumber(childrenArrivals);
   const volunteerNum = toNumber(volunteerHours);
-  if (childrenNum !== null && volunteerNum) {
-    const ratio = volunteerNum === 0 ? null : childrenNum / volunteerNum;
-    if (ratio !== null) {
-      const pretty = ratio.toFixed(2).replace('.', ',');
-      summaryCards.push({ label: 'OMJER', value: pretty });
-    }
+  if (childrenNum !== null && volunteerNum !== null && volunteerNum !== 0) {
+    const ratio = childrenNum / volunteerNum;
+    cards.push({ label: 'OMJER', value: ratio.toFixed(2).replace('.', ',') });
   }
 
-  const tables = [
+  return cards;
+}
+
+function buildStatTables(locationRows, schoolRows, gradeRows) {
+  return [
     {
       id: 'by-location',
       title: 'Po lokaciji',
-      columns: ['Lokacija', 'Djeca', 'Volonteri', 'Održani termini', 'Postotak djece', 'Postotak volontera', 'Omjer'],
+      columns: [
+        'Lokacija',
+        'Djeca',
+        'Volonteri',
+        'Odrzani termini',
+        'Postotak djece',
+        'Postotak volontera',
+        'Omjer'
+      ],
       rows: locationRows.map(r => [
         r.location,
         r.children,
@@ -289,8 +345,8 @@ function parseStatisticsTsv(tsvText) {
     },
     {
       id: 'by-school',
-      title: 'Po školi',
-      columns: ['Škola', 'Volonteri', 'Aktivni', 'Postotak aktivnih', 'Broj dolazaka', 'Postotak sati'],
+      title: 'Po skoli',
+      columns: ['Skola', 'Volonteri', 'Aktivni', 'Postotak aktivnih', 'Broj dolazaka', 'Postotak sati'],
       rows: schoolRows.map(r => [r.school, r.volunteers, r.active, r.pctActive, r.arrivals, r.pctHours])
     },
     {
@@ -300,8 +356,11 @@ function parseStatisticsTsv(tsvText) {
       rows: gradeRows.map(r => [r.grade, r.volunteers, r.active, r.pctActive, r.arrivals, r.pctHours])
     }
   ];
+}
 
+function buildStatCharts(locationRows, schoolRows, gradeRows) {
   const charts = [];
+
   if (locationRows.length) {
     charts.push({
       id: 'location-children-volunteers',
@@ -316,12 +375,11 @@ function parseStatisticsTsv(tsvText) {
   }
 
   if (schoolRows.length) {
-    const filteredSchools =
-      schoolRows.filter(r => (toNumber(r.arrivals) || 0) >= 10) || [];
+    const filteredSchools = schoolRows.filter(r => (toNumber(r.arrivals) || 0) >= 10) || [];
     const rowsForChart = filteredSchools.length ? filteredSchools : schoolRows;
     charts.push({
       id: 'school-active',
-      title: 'Aktivni volonteri po školi',
+      title: 'Aktivni volonteri po skoli',
       type: 'bar',
       labels: rowsForChart.map(r => r.school),
       datasets: [
@@ -344,14 +402,36 @@ function parseStatisticsTsv(tsvText) {
     });
   }
 
-  const filters = {
+  return charts;
+}
+
+function buildStatFilters(locationRows, schoolRows, gradeRows) {
+  return {
     locations: locationRows.map(r => r.location),
     schools: schoolRows.map(r => r.school),
     grades: gradeRows.map(r => r.grade)
   };
-
-  return { summaryCards, tables, charts, filters };
 }
+
+function parseStatisticsTsv(tsvText) {
+  if (!tsvText) return null;
+
+  const rows = parseTsvRows(tsvText);
+  const headerIndex = rows.findIndex(row => cleanCell(row[0]).toUpperCase() === 'LOKACIJA');
+  if (headerIndex === -1) return null;
+
+  const dataRows = rows.slice(headerIndex + 1);
+  const { locationRows, schoolRows, gradeRows, metrics, extraCards } = collectStatRows(dataRows);
+
+  return {
+    summaryCards: buildSummaryCards(metrics, extraCards),
+    tables: buildStatTables(locationRows, schoolRows, gradeRows),
+    charts: buildStatCharts(locationRows, schoolRows, gradeRows),
+    filters: buildStatFilters(locationRows, schoolRows, gradeRows)
+  };
+}
+
+// --- Routes -----------------------------------------------------------------
 
 /**
  * GET /api/names

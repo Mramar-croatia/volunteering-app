@@ -1,4 +1,5 @@
-﻿// frontend/app.js
+// frontend/app.js
+// Frontend logic for the Zlatni Zmaj volunteer roster, attendance entry and stats UI.
 
 // Ordered by priority; app will try each until one works.
 const API_BASE_URLS = [
@@ -18,6 +19,33 @@ function getCandidateBases() {
   return API_BASE_URLS;
 }
 
+function getApiBaseOrder() {
+  // Prefer the last working base first, then fall back to the default order.
+  const bases = getCandidateBases();
+  if (!activeApiBase) return bases;
+  return [activeApiBase, ...bases.filter(base => base !== activeApiBase)];
+}
+
+async function fetchFromApi(path, options = {}) {
+  const opts = { headers: {}, ...options };
+  const expectJson = opts.expectJson !== false;
+  let lastError = null;
+
+  for (const base of getApiBaseOrder()) {
+    try {
+      const res = await fetch(`${base}${path}`, opts);
+      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+      activeApiBase = base;
+      return expectJson ? res.json() : res.text();
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error('No API base responded');
+}
+
+// DOM references
 const volunteerTableBody = document.getElementById('volunteer-table-body');
 const volunteerCardsEl = document.getElementById('volunteer-cards');
 const bazaTableBody = document.getElementById('baza-table-body');
@@ -62,6 +90,7 @@ const locationSelect = document.getElementById('location');
 const dateInput = document.getElementById('date'); // visible text input
 const datePicker = document.getElementById('date-picker'); // hidden native picker
 
+// In-memory state
 let allVolunteers = [];
 let filteredVolunteers = [];
 let bazaFiltered = [];
@@ -134,7 +163,7 @@ function refreshHeroStats() {
   if (!statTotalEl || !statSelectedEl || !statTotalLabel || !statSelectedLabel) return;
 
   const labels = {
-    'tab-unos': { total: 'Na listi', secondary: 'Označeno' },
+    'tab-unos': { total: 'Na listi', secondary: 'Oznaceno' },
     'tab-baza': { total: 'Volontera', secondary: 'Sati' },
     'tab-termini': { total: 'Broj termina', secondary: 'Broj djece' },
     'tab-statistika': { total: 'Tablice', secondary: 'Grafovi' }
@@ -223,7 +252,7 @@ function formatSchoolNameForDisplay(name) {
     'ii gimnazija': 'II. gimnazija',
     'i gimnazija': 'I. gimnazija',
     'gimnazija titusa brezojevica': 'GTB',
-    'klasicna gimnazija': 'Klasična'
+    'klasicna gimnazija': 'Klasicna'
   };
   if (shortMap[canonical]) return shortMap[canonical];
 
@@ -531,12 +560,12 @@ function renderVolunteerDatabaseTable(list = allVolunteers) {
     const locCell = document.createElement('td');
     locCell.className = 'col-locations';
     const locationsList = parseLocations(vol);
-    locCell.textContent = locationsList.length ? locationsList.join(', ') : 'GÇö';
+    locCell.textContent = locationsList.length ? locationsList.join(', ') : 'N/A';
     row.appendChild(locCell);
 
     const phoneCell = document.createElement('td');
     phoneCell.className = 'col-phone';
-    phoneCell.textContent = vol.phone || 'GÇö';
+    phoneCell.textContent = vol.phone || 'N/A';
     row.appendChild(phoneCell);
 
     const hoursCell = document.createElement('td');
@@ -558,7 +587,7 @@ function renderVolunteerDatabaseTable(list = allVolunteers) {
 
       const badgeRow = document.createElement('div');
       badgeRow.className = 'pill-row';
-      const schoolTag = buildSchoolTag(vol.school, 'Škola');
+      const schoolTag = buildSchoolTag(vol.school, 'Skola');
       const gradeTag = document.createElement('span');
       gradeTag.className = 'pill-tag grade';
       gradeTag.style.background = colorForGrade(vol.grade || '');
@@ -768,7 +797,7 @@ function hydrateBazaSchoolFilter() {
   bazaSchoolFilter.innerHTML = '';
   const allOpt = document.createElement('option');
   allOpt.value = '';
-  allOpt.textContent = 'Sve škole';
+  allOpt.textContent = 'Sve skole';
   bazaSchoolFilter.appendChild(allOpt);
   schools.forEach(s => {
     const opt = document.createElement('option');
@@ -905,37 +934,13 @@ function hydrateLocationSelect() {
   }
 }
 
-async function tryFetchJSON(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  return res.json();
-}
-
 async function loadVolunteers() {
   statusEl.style.color = '';
   statusEl.textContent = 'Ucitavanje popisa volontera...';
   setStatusChip('Ucitavanje', 'info');
 
   try {
-    let volunteers = [];
-    let lastError = null;
-    let success = false;
-
-    for (const base of getCandidateBases()) {
-      try {
-        const data = await tryFetchJSON(`${base}/api/names`);
-        activeApiBase = base;
-        volunteers = data;
-        success = true;
-        break;
-      } catch (err) {
-        lastError = err;
-      }
-    }
-
-    if (!success) {
-      throw lastError || new Error('Nije pronadjen dostupni backend');
-    }
+    const volunteers = await fetchFromApi('/api/names');
 
     allVolunteers = volunteers;
     filteredVolunteers = [...allVolunteers];
@@ -963,7 +968,7 @@ async function loadVolunteers() {
     if (bazaTableBody) {
       bazaTableBody.innerHTML = `
         <tr class="empty-row">
-          <td colspan="6">Ne mogu ucitati bAzurirano.</td>
+          <td colspan="6">Ne mogu ucitati bazu volontera.</td>
         </tr>`;
     }
     setStatusChip('Greska', 'error');
@@ -996,17 +1001,11 @@ async function handleSubmit(event) {
   };
 
   try {
-    const res = await fetch(`${activeApiBase}/api/attendance`, {
+    const data = await fetchFromApi('/api/attendance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-
-    if (!res.ok) {
-      throw new Error('Network response was not ok');
-    }
-
-    const data = await res.json();
     if (data.ok) {
       statusEl.style.color = 'green';
       statusEl.textContent = 'Termin uspjesno upisan u evidenciju!';
@@ -1173,7 +1172,7 @@ function wireEvents() {
     if (locationSelect) {
       locationSelect.selectedIndex = 0;
     }
-    updateDateDisplay();
+    setDateInputDisplay('');
     setStatusChip('Spremno', 'info');
     setTimeout(() => applyFilters(), 0);
   });
@@ -1375,7 +1374,7 @@ function renderEventsList(list = eventsFiltered) {
     const row = document.createElement('tr');
 
     const iso = normalizeDate(entry.date);
-    const displayDate = formatDateForDisplay(iso) || entry.date || 'GÇö';
+    const displayDate = formatDateForDisplay(iso) || entry.date || 'N/A';
 
     const dateCell = document.createElement('td');
     dateCell.className = 'col-date';
@@ -1386,7 +1385,7 @@ function renderEventsList(list = eventsFiltered) {
     locCell.className = 'col-location center';
     const locPill = document.createElement('span');
     locPill.className = 'pill-tag';
-    locPill.textContent = entry.location || 'GÇö';
+    locPill.textContent = entry.location || 'N/A';
     locPill.style.background = colorForLocationName(entry.location || '');
     locPill.style.borderColor = 'rgba(0,0,0,0.05)';
     locCell.appendChild(locPill);
@@ -1404,7 +1403,7 @@ function renderEventsList(list = eventsFiltered) {
 
     const volunteersCell = document.createElement('td');
     volunteersCell.className = 'col-volunteers';
-    volunteersCell.textContent = entry.volunteers || 'GÇö';
+    volunteersCell.textContent = entry.volunteers || 'N/A';
     row.appendChild(volunteersCell);
 
     eventsTableBody.appendChild(row);
@@ -1444,23 +1443,8 @@ function renderEventsList(list = eventsFiltered) {
 
 async function loadExistingAttendance() {
   try {
-    let data = [];
-    let lastError = null;
-    let success = false;
-    for (const base of getCandidateBases()) {
-      try {
-        const res = await fetch(`${base}/api/evidencija`);
-        if (!res.ok) throw new Error('Network response was not ok');
-        data = await res.json();
-        activeApiBase = base;
-        success = true;
-        break;
-      } catch (err) {
-        lastError = err;
-      }
-    }
-    if (!success) throw lastError || new Error('Nije pronadjen dostupni backend');
-    existingAttendance = data;
+    const data = await fetchFromApi('/api/evidencija');
+    existingAttendance = Array.isArray(data) ? data : [];
     eventsFiltered = [...existingAttendance];
   } catch (err) {
     console.error('Failed to load evidencija', err);
@@ -1480,7 +1464,7 @@ function renderStatsSummary(cards = []) {
   if (!cards.length) {
     const empty = document.createElement('p');
     empty.className = 'muted';
-    empty.textContent = 'Nema sažetaka za prikaz.';
+    empty.textContent = 'Nema sazetaka za prikaz.';
     statsSummaryEl.appendChild(empty);
     return;
   }
@@ -1541,7 +1525,7 @@ function buildStatsTable(columns = [], rows = [], tableId = '') {
     indicator.className = 'sort-indicator';
     const sortState = statsSortState[tableId];
     if (sortState && sortState.col === idx) {
-      indicator.textContent = sortState.dir === 'asc' ? 'Gû¦' : 'Gû+';
+      indicator.textContent = sortState.dir === 'asc' ? '^' : 'v';
     } else {
       indicator.textContent = '';
     }
@@ -1778,9 +1762,9 @@ function renderStats(payload) {
   if (statsUpdatedEl) {
     const updated = payload.lastUpdated ? new Date(payload.lastUpdated) : null;
     if (updated && !Number.isNaN(updated.getTime())) {
-      statsUpdatedEl.textContent = `Ažurirano: ${updated.toLocaleString('hr-HR')}`;
+      statsUpdatedEl.textContent = `Azurirano: ${updated.toLocaleString('hr-HR')}`;
     } else {
-      statsUpdatedEl.textContent = 'Ažurirano: -';
+      statsUpdatedEl.textContent = 'Azurirano: -';
     }
   }
   refreshHeroStats();
@@ -1788,41 +1772,33 @@ function renderStats(payload) {
 
 function renderStatsLoading() {
   if (statsSummaryEl) {
-    statsSummaryEl.innerHTML = '<p class=\"muted\">U-ìitavanje statistike...</p>';
+    statsSummaryEl.innerHTML = '<p class=\"muted\">Ucitavanje statistike...</p>';
   }
   if (statsChartsEl) {
-    statsChartsEl.innerHTML = '<div class=\"empty-row\">Grafovi se u-ìitavaju...</div>';
+    statsChartsEl.innerHTML = '<div class=\"empty-row\">Grafovi se ucitavaju...</div>';
   }
 }
 
 function renderStatsError(message) {
   if (statsSummaryEl) {
-    statsSummaryEl.innerHTML = `<p class=\"status error\">${message || 'Neuspjelo u-ìitavanje statistike.'}</p>`;
+    statsSummaryEl.innerHTML = `<p class=\"status error\">${message || 'Neuspjelo ucitavanje statistike.'}</p>`;
   }
   if (statsChartsEl) {
-    statsChartsEl.innerHTML = '<div class=\"empty-row\">Nije mogu-çe prikazati grafove.</div>';
+    statsChartsEl.innerHTML = '<div class=\"empty-row\">Nije moguce prikazati grafove.</div>';
   }
 }
 
 async function loadStatistics() {
   if (!statsSummaryEl && !statsChartsEl) return;
   renderStatsLoading();
-  let lastError = null;
-  for (const base of getCandidateBases()) {
-    try {
-      const res = await fetch(`${base}/api/statistika`);
-      if (!res.ok) throw new Error('Network response was not ok');
-      const data = await res.json();
-      activeApiBase = base;
-      statisticsData = data;
-      renderStats(data);
-      return;
-    } catch (err) {
-      lastError = err;
-    }
+  try {
+    const data = await fetchFromApi('/api/statistika');
+    statisticsData = data;
+    renderStats(data);
+  } catch (err) {
+    console.error('Failed to load statistika', err);
+    renderStatsError('Nije moguce dohvatiti statistiku.');
   }
-  console.error('Failed to load statistika', lastError);
-  renderStatsError('Nije mogu-çe dohvatiti statistiku.');
 }
 
 function normalizeDate(dateStr) {
@@ -1917,11 +1893,11 @@ function colorForSchool(school) {
   ];
 
   const SCHOOL_COLOR_MAP = {
-    'gimnazija antun gustav matoš samobor': '#ffb9c1ff', // red
+    'gimnazija antun gustav matos samobor': '#ffb9c1ff', // red
     'gimnazija lucijana vranjanina': '#b6ffcfff', // green
-    'klasična gimnazija': '#ffea95ff', // yellow
-    'prirodoslovna škola vladimir prelog': '#bfe9ff', // cyan
-    'privatna umjetnička gimnazija': '#febff2ff', // blue
+    'klasicna gimnazija': '#ffea95ff', // yellow
+    'prirodoslovna skola vladimir prelog': '#bfe9ff', // cyan
+    'privatna umjetnicka gimnazija': '#febff2ff', // blue
     'xv. gimnazija (mioc)': '#93c5fd' // blue
   };
 
@@ -1969,8 +1945,8 @@ function colorForLocationName(name) {
     'mioc': '#bfdbfe',
     'kralj tomislav': '#fef3c7',
     'samobor': '#ddd6fe',
-    'tre+ínjevka': '#bbf7d0',
-    '+ípansko': '#fecdd3'
+    'tresnjevka': '#bbf7d0',
+    'spansko': '#fecdd3'
   };
 
   const key = (name || '').trim().toLowerCase();
