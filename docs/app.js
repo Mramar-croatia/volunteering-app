@@ -64,8 +64,6 @@ const eventsTableBody = document.getElementById('events-table-body');
 const statsSummaryEl = document.getElementById('stats-summary');
 const statsUpdatedEl = document.getElementById('stats-updated');
 const statsChartsEl = document.getElementById('stats-charts');
-const statsTableCountEl = document.getElementById('stats-table-count');
-const statsChartCountEl = document.getElementById('stats-chart-count');
 const statsTables = {
   location: document.getElementById('stats-table-location'),
   school: document.getElementById('stats-table-school'),
@@ -114,6 +112,44 @@ let statsChartInstances = [];
 let statsTablesData = {};
 let statsSortState = {};
 
+const LOCALE = 'hr';
+const LOCALE_COMPARE_OPTIONS = { sensitivity: 'base' };
+const MOBILE_MEDIA_QUERY = '(max-width: 720px)';
+
+function compareLocale(a, b) {
+  return String(a).localeCompare(String(b), LOCALE, LOCALE_COMPARE_OPTIONS);
+}
+
+function clearElement(el) {
+  if (el) el.innerHTML = '';
+}
+
+function createOption(value, text, { disabled = false, selected = false } = {}) {
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = text;
+  if (disabled) option.disabled = true;
+  if (selected) option.selected = true;
+  return option;
+}
+
+function createEmptyRow(colSpan, text) {
+  const row = document.createElement('tr');
+  row.className = 'empty-row';
+  const cell = document.createElement('td');
+  cell.colSpan = colSpan;
+  cell.textContent = text;
+  row.appendChild(cell);
+  return row;
+}
+
+function createEmptyCard(text) {
+  const card = document.createElement('div');
+  card.className = 'vol-card empty-card';
+  card.textContent = text;
+  return card;
+}
+
 function parseLocations(vol) {
   if (Array.isArray(vol.locations)) {
     return vol.locations.map(loc => String(loc).trim()).filter(Boolean);
@@ -131,6 +167,44 @@ function parseLocations(vol) {
       .filter(Boolean);
   }
   return [];
+}
+
+function formatLocationsShort(vol, fallback = 'N/A') {
+  const locations = parseLocations(vol);
+  if (!locations.length) return fallback;
+  return locations
+    .map(loc => loc.trim())
+    .filter(Boolean)
+    .map(loc => loc.charAt(0).toUpperCase())
+    .join(', ');
+}
+
+function formatLocationsFull(vol, fallback = 'N/A') {
+  const locations = parseLocations(vol);
+  return locations.length ? locations.join(', ') : fallback;
+}
+
+function updateSortIndicators(headers, activeKey, direction, dataAttr) {
+  if (!headers.length) return;
+  headers.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+  const active = headers.find(h => h.getAttribute(dataAttr) === activeKey);
+  if (active) {
+    active.classList.add(direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+  }
+}
+
+function renderStatsTableCard(host, tableId, data) {
+  if (!host || !data) return;
+  host.innerHTML = '';
+  const card = document.createElement('div');
+  card.className = 'stats-table-card';
+  const title = document.createElement('div');
+  title.className = 'stats-table-title';
+  title.textContent = data.title || '';
+  const tableEl = buildStatsTable(data.columns, data.rows, tableId);
+  card.appendChild(title);
+  card.appendChild(tableEl);
+  host.appendChild(card);
 }
 
 function setStatusChip(text, tone = 'info') {
@@ -218,14 +292,14 @@ function updateCounts() {
 }
 
 function applyResponsiveLayout() {
-  const isMobile = window.matchMedia('(max-width: 720px)').matches;
+  const isMobile = window.matchMedia(MOBILE_MEDIA_QUERY).matches;
   document.body.classList.toggle('mobile-active', isMobile);
 }
 
 function isMobileView() {
   if (document.body.classList.contains('mobile-active')) return true;
   if (typeof window !== 'undefined' && window.matchMedia) {
-    return window.matchMedia('(max-width: 720px)').matches;
+    return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
   }
   return false;
 }
@@ -327,24 +401,16 @@ function captureSelection() {
 }
 
 function renderVolunteers() {
-  volunteerTableBody.innerHTML = '';
-  if (volunteerCardsEl) volunteerCardsEl.innerHTML = '';
+  clearElement(volunteerTableBody);
+  clearElement(volunteerCardsEl);
 
   if (!filteredVolunteers.length) {
-    const row = document.createElement('tr');
-    row.className = 'empty-row';
-    const cell = document.createElement('td');
-    cell.colSpan = 6;
     const query = searchInput.value.trim();
-    cell.textContent = query ? `Nema rezultata za "${query}".` : 'Lista je prazna.';
-    row.appendChild(cell);
-    volunteerTableBody.appendChild(row);
+    const message = query ? `Nema rezultata za "${query}".` : 'Lista je prazna.';
+    volunteerTableBody.appendChild(createEmptyRow(6, message));
 
     if (volunteerCardsEl) {
-      const card = document.createElement('div');
-      card.className = 'vol-card empty-card';
-      card.textContent = query ? `Nema rezultata za "${query}".` : 'Lista je prazna.';
-      volunteerCardsEl.appendChild(card);
+      volunteerCardsEl.appendChild(createEmptyCard(message));
     }
     updateCounts();
     return;
@@ -376,14 +442,7 @@ function renderVolunteers() {
 
     const locationsCell = document.createElement('td');
     locationsCell.className = 'volunteer-meta col-locations';
-    const locationsList = parseLocations(vol);
-    const locText = locationsList.length
-      ? locationsList
-          .map(loc => loc.trim())
-          .filter(Boolean)
-          .map(loc => loc.charAt(0).toUpperCase())
-          .join(', ')
-      : 'N/A';
+    const locText = formatLocationsShort(vol, 'N/A');
     locationsCell.appendChild(document.createTextNode(locText));
     row.appendChild(locationsCell);
 
@@ -396,11 +455,11 @@ function renderVolunteers() {
     presentCell.className = 'center col-present';
     const pill = document.createElement('div');
     pill.className = 'checkbox-pill';
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.value = vol.name;
-      checkbox.className = 'present-checkbox';
-      checkbox.checked = selectedNames.has(vol.name);
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = vol.name;
+    checkbox.className = 'present-checkbox';
+    checkbox.checked = selectedNames.has(vol.name);
     checkbox.addEventListener('click', ev => ev.stopPropagation());
     checkbox.addEventListener('change', ev => {
       if (ev.target.checked) {
@@ -514,22 +573,13 @@ function renderVolunteers() {
 
 function renderVolunteerDatabaseTable(list = allVolunteers) {
   if (!bazaTableBody) return;
-  bazaTableBody.innerHTML = '';
-  if (bazaCardsEl) bazaCardsEl.innerHTML = '';
+  clearElement(bazaTableBody);
+  clearElement(bazaCardsEl);
 
   if (!list.length) {
-    const row = document.createElement('tr');
-    row.className = 'empty-row';
-    const cell = document.createElement('td');
-    cell.colSpan = 6;
-    cell.textContent = 'Lista je prazna.';
-    row.appendChild(cell);
-    bazaTableBody.appendChild(row);
+    bazaTableBody.appendChild(createEmptyRow(6, 'Lista je prazna.'));
     if (bazaCardsEl) {
-      const card = document.createElement('div');
-      card.className = 'vol-card empty-card';
-      card.textContent = 'Lista je prazna.';
-      bazaCardsEl.appendChild(card);
+      bazaCardsEl.appendChild(createEmptyCard('Lista je prazna.'));
     }
     return;
   }
@@ -559,8 +609,7 @@ function renderVolunteerDatabaseTable(list = allVolunteers) {
 
     const locCell = document.createElement('td');
     locCell.className = 'col-locations';
-    const locationsList = parseLocations(vol);
-    locCell.textContent = locationsList.length ? locationsList.join(', ') : 'N/A';
+    locCell.textContent = formatLocationsFull(vol, 'N/A');
     row.appendChild(locCell);
 
     const phoneCell = document.createElement('td');
@@ -601,21 +650,7 @@ function renderVolunteerDatabaseTable(list = allVolunteers) {
 
       const meta = document.createElement('div');
       meta.className = 'vol-card-meta';
-      const loc = parseLocations(vol);
-      const locationsText = loc.length
-        ? loc
-            .map(l => l.trim())
-            .filter(Boolean)
-            .map(l => l.charAt(0).toUpperCase())
-            .join(', ')
-        : (vol.location || '').trim()
-          ? (vol.location || '')
-              .split(',')
-              .map(l => l.trim())
-              .filter(Boolean)
-              .map(l => l.charAt(0).toUpperCase())
-              .join(', ')
-          : '-';
+      const locationsText = formatLocationsShort(vol, '-');
       meta.innerHTML = `
         <div class="meta-line"><strong>Lokacije:</strong> ${locationsText}</div>
         <div class="meta-line"><strong>Kontakt:</strong> ${vol.phone || '-'}</div>
@@ -681,12 +716,9 @@ function applyFilters() {
       return sortDirection === 'asc' ? valA - valB : valB - valA;
     }
 
-    const compare = (first, second) =>
-      first.localeCompare(second, 'hr', { sensitivity: 'base' });
-
     return sortDirection === 'asc'
-      ? compare(valA.toString(), valB.toString())
-      : compare(valB.toString(), valA.toString());
+      ? compareLocale(valA, valB)
+      : compareLocale(valB, valA);
   });
 
   filteredVolunteers = list;
@@ -767,10 +799,9 @@ function applyBazaFilters() {
       return bazaSortDirection === 'asc' ? valA - valB : valB - valA;
     }
 
-    const compare = (first, second) =>
-      first.toString().localeCompare(second.toString(), 'hr', { sensitivity: 'base' });
-
-    return bazaSortDirection === 'asc' ? compare(valA, valB) : compare(valB, valA);
+    return bazaSortDirection === 'asc'
+      ? compareLocale(valA, valB)
+      : compareLocale(valB, valA);
   });
 
   bazaFiltered = list;
@@ -780,30 +811,17 @@ function applyBazaFilters() {
 }
 
 function refreshBazaSortIndicators() {
-  if (!bazaSortableHeaders.length) return;
-  bazaSortableHeaders.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
-  const active = bazaSortableHeaders.find(h => h.getAttribute('data-baza-sort') === bazaSortKey);
-  if (active) {
-    active.classList.add(bazaSortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
-  }
+  updateSortIndicators(bazaSortableHeaders, bazaSortKey, bazaSortDirection, 'data-baza-sort');
 }
 
 function hydrateBazaSchoolFilter() {
   if (!bazaSchoolFilter) return;
   const previous = bazaSchoolFilter.value;
-  const schools = Array.from(new Set(allVolunteers.map(v => (v.school || '').trim()).filter(Boolean))).sort((a, b) =>
-    a.localeCompare(b, 'hr', { sensitivity: 'base' })
-  );
-  bazaSchoolFilter.innerHTML = '';
-  const allOpt = document.createElement('option');
-  allOpt.value = '';
-  allOpt.textContent = 'Sve skole';
-  bazaSchoolFilter.appendChild(allOpt);
+  const schools = Array.from(new Set(allVolunteers.map(v => (v.school || '').trim()).filter(Boolean))).sort(compareLocale);
+  clearElement(bazaSchoolFilter);
+  bazaSchoolFilter.appendChild(createOption('', 'Sve skole'));
   schools.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s;
-    opt.textContent = s;
-    bazaSchoolFilter.appendChild(opt);
+    bazaSchoolFilter.appendChild(createOption(s, s));
   });
   if (previous && schools.includes(previous)) {
     bazaSchoolFilter.value = previous;
@@ -813,19 +831,11 @@ function hydrateBazaSchoolFilter() {
 function hydrateBazaGradeFilter() {
   if (!bazaGradeFilter) return;
   const previous = bazaGradeFilter.value;
-  const grades = Array.from(new Set(allVolunteers.map(v => (v.grade || '').toString().trim()).filter(Boolean))).sort((a, b) =>
-    a.localeCompare(b, 'hr', { sensitivity: 'base' })
-  );
-  bazaGradeFilter.innerHTML = '';
-  const allOpt = document.createElement('option');
-  allOpt.value = '';
-  allOpt.textContent = 'Svi razredi';
-  bazaGradeFilter.appendChild(allOpt);
+  const grades = Array.from(new Set(allVolunteers.map(v => (v.grade || '').toString().trim()).filter(Boolean))).sort(compareLocale);
+  clearElement(bazaGradeFilter);
+  bazaGradeFilter.appendChild(createOption('', 'Svi razredi'));
   grades.forEach(g => {
-    const opt = document.createElement('option');
-    opt.value = g;
-    opt.textContent = displayGrade(g);
-    bazaGradeFilter.appendChild(opt);
+    bazaGradeFilter.appendChild(createOption(g, displayGrade(g)));
   });
   if (previous && grades.includes(previous)) {
     bazaGradeFilter.value = previous;
@@ -856,19 +866,12 @@ function hydrateBazaLocationFilter() {
     }
   });
 
-  const locations = Array.from(locs.values()).sort((a, b) =>
-    a.localeCompare(b, 'hr', { sensitivity: 'base' })
-  );
-  bazaLocationFilter.innerHTML = '';
-  const allOpt = document.createElement('option');
-  allOpt.value = '';
-  allOpt.textContent = 'Sve lokacije';
-  bazaLocationFilter.appendChild(allOpt);
+  const locations = Array.from(locs.values()).sort(compareLocale);
+  clearElement(bazaLocationFilter);
+  bazaLocationFilter.appendChild(createOption('', 'Sve lokacije'));
   locations.forEach(loc => {
-    const opt = document.createElement('option');
-    opt.value = loc.toUpperCase();
-    opt.textContent = loc.toUpperCase();
-    bazaLocationFilter.appendChild(opt);
+    const label = loc.toUpperCase();
+    bazaLocationFilter.appendChild(createOption(label, label));
   });
   if (previous && locations.includes(previous)) {
     bazaLocationFilter.value = previous.toUpperCase();
@@ -908,23 +911,15 @@ function hydrateLocationSelect() {
     ['Dubrava', 'Dugave', 'Centar'].forEach(loc => locationsSet.add(loc));
   }
 
-  const sorted = Array.from(locationsSet).filter(Boolean).sort((a, b) =>
-    a.localeCompare(b, 'hr', { sensitivity: 'base' })
+  const sorted = Array.from(locationsSet).filter(Boolean).sort(compareLocale);
+
+  clearElement(locationSelect);
+  locationSelect.appendChild(
+    createOption('', 'Odaberi lokaciju', { disabled: true, selected: true })
   );
 
-  locationSelect.innerHTML = '';
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.disabled = true;
-  placeholder.textContent = 'Odaberi lokaciju';
-  placeholder.selected = true;
-  locationSelect.appendChild(placeholder);
-
   sorted.forEach(loc => {
-    const option = document.createElement('option');
-    option.value = loc;
-    option.textContent = loc;
-    locationSelect.appendChild(option);
+    locationSelect.appendChild(createOption(loc, loc));
   });
 
   if (previous && sorted.includes(previous)) {
@@ -1203,21 +1198,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function refreshSortIndicators() {
-  if (!sortableHeaders.length) return;
-  sortableHeaders.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
-  const active = sortableHeaders.find(h => h.getAttribute('data-sort-key') === sortKey);
-  if (active) {
-    active.classList.add(sortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
-  }
+  updateSortIndicators(sortableHeaders, sortKey, sortDirection, 'data-sort-key');
 }
 
 function refreshEventSortIndicators() {
-  if (!eventSortableHeaders.length) return;
-  eventSortableHeaders.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
-  const active = eventSortableHeaders.find(h => h.getAttribute('data-events-sort') === eventSortKey);
-  if (active) {
-    active.classList.add(eventSortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
-  }
+  updateSortIndicators(eventSortableHeaders, eventSortKey, eventSortDirection, 'data-events-sort');
 }
 
 function applyEventsFilters() {
@@ -1279,10 +1264,9 @@ function applyEventsFilters() {
       return eventSortDirection === 'asc' ? valA - valB : valB - valA;
     }
 
-    const compare = (first, second) =>
-      first.toString().localeCompare(second.toString(), 'hr', { sensitivity: 'base' });
-
-    return eventSortDirection === 'asc' ? compare(valA, valB) : compare(valB, valA);
+    return eventSortDirection === 'asc'
+      ? compareLocale(valA, valB)
+      : compareLocale(valB, valA);
   });
 
   eventsFiltered = list;
@@ -1302,18 +1286,12 @@ function hydrateEventsLocationFilter() {
     )
   )
     .map(l => l.toUpperCase())
-    .sort((a, b) => a.localeCompare(b, 'hr', { sensitivity: 'base' }));
+    .sort(compareLocale);
 
-  eventsLocationFilter.innerHTML = '';
-  const allOpt = document.createElement('option');
-  allOpt.value = '';
-  allOpt.textContent = 'Sve lokacije';
-  eventsLocationFilter.appendChild(allOpt);
+  clearElement(eventsLocationFilter);
+  eventsLocationFilter.appendChild(createOption('', 'Sve lokacije'));
   locs.forEach(loc => {
-    const opt = document.createElement('option');
-    opt.value = loc;
-    opt.textContent = loc;
-    eventsLocationFilter.appendChild(opt);
+    eventsLocationFilter.appendChild(createOption(loc, loc));
   });
   if (previous && locs.includes(previous.toUpperCase())) {
     eventsLocationFilter.value = previous.toUpperCase();
@@ -1332,16 +1310,10 @@ function hydrateEventsYearFilter() {
     )
   ).sort();
 
-  eventsYearFilter.innerHTML = '';
-  const allOpt = document.createElement('option');
-  allOpt.value = '';
-  allOpt.textContent = 'Sve godine';
-  eventsYearFilter.appendChild(allOpt);
+  clearElement(eventsYearFilter);
+  eventsYearFilter.appendChild(createOption('', 'Sve godine'));
   years.forEach(y => {
-    const opt = document.createElement('option');
-    opt.value = y;
-    opt.textContent = y;
-    eventsYearFilter.appendChild(opt);
+    eventsYearFilter.appendChild(createOption(y, y));
   });
   if (previous && years.includes(previous)) {
     eventsYearFilter.value = previous;
@@ -1350,22 +1322,13 @@ function hydrateEventsYearFilter() {
 
 function renderEventsList(list = eventsFiltered) {
   if (!eventsTableBody) return;
-  eventsTableBody.innerHTML = '';
-  if (eventsCardsEl) eventsCardsEl.innerHTML = '';
+  clearElement(eventsTableBody);
+  clearElement(eventsCardsEl);
 
   if (!list.length) {
-    const row = document.createElement('tr');
-    row.className = 'empty-row';
-    const cell = document.createElement('td');
-    cell.colSpan = 5;
-    cell.textContent = 'Evidencija je prazna ili se ucitava.';
-    row.appendChild(cell);
-    eventsTableBody.appendChild(row);
+    eventsTableBody.appendChild(createEmptyRow(5, 'Evidencija je prazna ili se ucitava.'));
     if (eventsCardsEl) {
-      const card = document.createElement('div');
-      card.className = 'vol-card empty-card';
-      card.textContent = 'Evidencija je prazna.';
-      eventsCardsEl.appendChild(card);
+      eventsCardsEl.appendChild(createEmptyCard('Evidencija je prazna.'));
     }
     return;
   }
@@ -1546,13 +1509,7 @@ function buildStatsTable(columns = [], rows = [], tableId = '') {
 
   const tbody = document.createElement('tbody');
   if (!rows.length) {
-    const tr = document.createElement('tr');
-    tr.className = 'empty-row';
-    const td = document.createElement('td');
-    td.colSpan = columns.length || 1;
-    td.textContent = 'Nema podataka.';
-    tr.appendChild(td);
-    tbody.appendChild(tr);
+    tbody.appendChild(createEmptyRow(columns.length || 1, 'Nema podataka.'));
   } else {
     rows.forEach(row => {
       const tr = document.createElement('tr');
@@ -1590,16 +1547,7 @@ function renderStatsTables(tables = []) {
     const host = hostMap[table.id];
     if (!host) return;
     statsTablesData[table.id] = { columns: table.columns, rows: table.rows, title: table.title };
-    host.innerHTML = '';
-    const card = document.createElement('div');
-    card.className = 'stats-table-card';
-    const title = document.createElement('div');
-    title.className = 'stats-table-title';
-    title.textContent = table.title || '';
-    const tableEl = buildStatsTable(table.columns, table.rows, table.id);
-    card.appendChild(title);
-    card.appendChild(tableEl);
-    host.appendChild(card);
+    renderStatsTableCard(host, table.id, statsTablesData[table.id]);
   });
 }
 
@@ -1620,8 +1568,8 @@ function handleStatsSort(tableId, colIndex) {
       return nextDir === 'asc' ? numA - numB : numB - numA;
     }
     return nextDir === 'asc'
-      ? String(valA).localeCompare(String(valB), 'hr', { sensitivity: 'base' })
-      : String(valB).localeCompare(String(valA), 'hr', { sensitivity: 'base' });
+      ? compareLocale(valA, valB)
+      : compareLocale(valB, valA);
   });
 
   statsTablesData[tableId].rows = rows;
@@ -1634,16 +1582,7 @@ function handleStatsSort(tableId, colIndex) {
       ? statsTables.grade
       : null;
   if (!host) return;
-  host.innerHTML = '';
-  const card = document.createElement('div');
-  card.className = 'stats-table-card';
-  const title = document.createElement('div');
-  title.className = 'stats-table-title';
-  title.textContent = data.title || '';
-  const tableEl = buildStatsTable(data.columns, rows, tableId);
-  card.appendChild(title);
-  card.appendChild(tableEl);
-  host.appendChild(card);
+  renderStatsTableCard(host, tableId, data);
 }
 
 function destroyStatsCharts() {
@@ -1955,8 +1894,4 @@ function colorForLocationName(name) {
   const hash = Array.from(key).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
   return palette[hash % palette.length];
 }
-
-
-
-
 

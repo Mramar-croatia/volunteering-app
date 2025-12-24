@@ -144,8 +144,8 @@ p {
 
 .stat-label {
   display: block;
-  font-size: 13px;
-  color: #ffffff;
+  font-size: 12px;
+  color: var(--muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-align: center;
@@ -338,7 +338,8 @@ p {
   margin-bottom: 6px;
 }
 
-.field input {
+.field input,
+.field select {
   font-size: 16px;
   padding: 12px 12px;
   border-radius: 12px;
@@ -362,21 +363,10 @@ p {
   border: 0;
 }
 
-.field select {
-  font-size: 16px;
-  padding: 12px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: #f8fafc;
-}
-
-.field input:focus {
-  outline: 2px solid var(--glow);
-  border-color: var(--accent);
-  background: #ffffff;
-}
-
-.field select:focus {
+.field input:focus,
+.field select:focus,
+.search-group input[type="search"]:focus,
+.filter-select:focus {
   outline: 2px solid var(--glow);
   border-color: var(--accent);
   background: #ffffff;
@@ -414,8 +404,8 @@ p {
   min-width: 240px;
 }
 
-.search-group input[type="search"] {
-  flex: 1;
+.search-group input[type="search"],
+.filter-select {
   padding: 11px 12px;
   border-radius: 12px;
   border: 1px solid var(--line);
@@ -423,10 +413,8 @@ p {
   background: #f8fafc;
 }
 
-.search-group input[type="search"]:focus {
-  outline: 2px solid var(--glow);
-  border-color: var(--accent);
-  background: #ffffff;
+.search-group input[type="search"] {
+  flex: 1;
 }
 
 .legend {
@@ -461,17 +449,6 @@ p {
 .filter-select {
   min-width: 180px;
   width: 100%;
-  padding: 11px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: #f8fafc;
-  font-size: 15px;
-}
-
-.filter-select:focus {
-  outline: 2px solid var(--glow);
-  border-color: var(--accent);
-  background: #ffffff;
 }
 
 .filter-label {
@@ -614,17 +591,13 @@ p {
   color: #4c1d95;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  font-size: 15px;
+  font-size: 17px;
   text-align: center;
 }
 
 .roster-table td.center,
 .roster-table th.center {
   text-align: center;
-}
-
-.roster-table th {
-  font-size: 17px;
 }
 
 .roster-table.compact th,
@@ -916,12 +889,6 @@ p {
   letter-spacing: 0.01em;
   box-shadow: none;
   width: 100%;
-}
-
-.stat-label {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  color: var(--muted);
 }
 
 .stat-chip strong {
@@ -1505,12 +1472,6 @@ p {
 #stats-table-location .roster-table th:nth-child(1),
 #stats-table-location .roster-table td:nth-child(1) {
   text-align: center;
-}
-
-#stats-table-grade .roster-table th:nth-child(1),
-#stats-table-grade .roster-table td:nth-child(1) {
-  text-align: center;
-  min-width: 80px;
 }
 
 .chart-grid {
